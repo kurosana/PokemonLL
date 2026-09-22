@@ -1,12 +1,25 @@
 import React from "react";
-import { IvResearchPage } from "../features/iv-research/IvResearchPage";
+import { BreakResearchPage } from "../features/break-research/BreakResearchPage";
 import { HomePage } from "../features/home/HomePage";
+import { IvResearchPage } from "../features/iv-research/IvResearchPage";
+import { SimResearchPage } from "../features/sim-research/SimResearchPage";
+import { SiteLayout } from "./Layout";
 
-type Route = "/" | "/research/iv";
+type Route = "/" | "/research/iv" | "/research/break" | "/research/sim";
+
+const titles: Record<Route, string | undefined> = {
+  "/": undefined,
+  "/research/iv": "個体値研究",
+  "/research/break": "ダメージブレイク研究",
+  "/research/sim": "バトルシミュレーション研究",
+};
 
 function getRouteFromHash(hash: string): Route {
   const normalized = hash.replace(/^#/, "").replace(/\/+$/, "");
-  return normalized === "" ? "/" : (normalized as Route);
+  if (normalized === "/research/iv" || normalized === "/research/break" || normalized === "/research/sim") {
+    return normalized;
+  }
+  return "/";
 }
 
 export function App() {
@@ -18,9 +31,12 @@ export function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  if (route === "/research/iv") {
-    return <IvResearchPage />;
-  }
-
-  return <HomePage />;
+  return (
+    <SiteLayout title={titles[route]} route={route}>
+      {route === "/research/iv" ? <IvResearchPage /> : null}
+      {route === "/research/break" ? <BreakResearchPage /> : null}
+      {route === "/research/sim" ? <SimResearchPage /> : null}
+      {route === "/" ? <HomePage /> : null}
+    </SiteLayout>
+  );
 }

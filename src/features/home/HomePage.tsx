@@ -1,150 +1,76 @@
-import {
-  Activity,
-  BarChart3,
-  Calculator,
-  ChevronRight,
-  Crosshair,
-  Gauge,
-  Layers3,
-  Shield,
-  Swords,
-  UsersRound,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronRight, Crosshair, Gauge, Swords, UsersRound, type LucideIcon } from "lucide-react";
 
 type ResearchCard = {
   title: string;
   description: string;
-  status: string;
   icon: LucideIcon;
-  accent: string;
   metrics: string[];
-  href: string;
+  href?: string;
+  ready: boolean;
 };
 
 const researchCards: ResearchCard[] = [
   {
-    title: "pkmn個体値研究",
-    description: "1匹のポケモンごとにCP、SCP、攻撃/防御/HPの個体値・実数値を比較して育成候補を研究",
-    status: "CP / SCP / Rank",
+    title: "個体値研究",
+    description: "1匹ごとにCP、SCP、攻撃・防御・HPを比較して、育成候補を絞ります。",
     icon: Gauge,
-    accent: "mint",
-    metrics: ["SCP順位比較", "実数値", "リーグ別"],
+    metrics: ["SCP順位", "実数値", "リーグ別"],
     href: "#/research/iv",
+    ready: true,
   },
   {
     title: "ダメージブレイク研究",
-    description: "技ごとのブレイクポイントをポケモンの実数値ごとに計算・研究",
-    status: "Break Point",
+    description: "技ごとのブレイクポイントを、ポケモンの実数値ごとに計算します。",
     icon: Crosshair,
-    accent: "amber",
-    metrics: ["通常技", "ゲージ技", "ブレイクポイント"],
-    href: "#/",
+    metrics: ["通常技", "ゲージ技", "ブレイク"],
+    href: "#/research/break",
+    ready: true,
   },
   {
     title: "バトルシミュレーション研究",
-    description: "シールド枚数、交代タイミング、技発動順を変えて対戦展開を検証する。",
-    status: "Simulation",
+    description: "シールド枚数とゲージ技のタイミングを変えて、対面の展開を検証します。",
     icon: Swords,
-    accent: "red",
-    metrics: ["対面検証", "シールド", "シミュレーション"],
-    href: "#/",
+    metrics: ["対面", "シールド", "シミュレーション"],
+    href: "#/research/sim",
+    ready: true,
   },
   {
-    title: "6体6パーティ考察研究",
-    description: "6体編成の役割、補完、苦手対面を可視化してパーティ案を比較する。",
-    status: "Party Lab",
+    title: "6体パーティ考察研究",
+    description: "6体編成の役割、補完、苦手対面を可視化して、パーティ案を比べます。",
     icon: UsersRound,
-    accent: "blue",
     metrics: ["補完表", "役割", "分析"],
-    href: "#/",
+    ready: false,
   },
 ];
 
 export function HomePage() {
   return (
-    <main className="app-shell">
-      <section className="hero">
-        <div className="hero-media" aria-hidden="true" />
-        <div className="hero-overlay" />
-
-        <nav className="topbar" aria-label="メインナビゲーション">
-          <a className="brand" href="#/" aria-label="PokemonLL ホーム">
-            <span className="brand-mark">
-              <Activity size={18} strokeWidth={2.4} />
-            </span>
-            <span>PokemonLL</span>
+    <div className="page-home">
+      <section className="home-intro rise">
+        <p className="eyebrow">Pokemon GO Battle Research</p>
+        <h1>PokemonLL</h1>
+        <p className="lead">ポケモンGOの育成を、数字で比較する研究ツールです。</p>
+        <p className="note">個体値、ブレイク、シミュレーションを同じ場所で調べられます。</p>
+        <div className="home-cta-row">
+          <a className="btn btn-primary" href="#/research/iv">
+            個体値研究を開く
           </a>
-          <div className="nav-actions">
-            <button type="button" className="icon-button" aria-label="研究データ">
-              <BarChart3 size={18} />
-            </button>
-            <button type="button" className="icon-button" aria-label="防御相性">
-              <Shield size={18} />
-            </button>
-          </div>
-        </nav>
-
-        <div className="hero-content">
-          <div className="hero-copy">
-            <p className="eyebrow">Pokemon GO Battle Research</p>
-            <h1>PokemonLL</h1>
-            <p className="lead">
-              LLチーム用のポケモンGO育成研究ワークスペース
-            </p>
-            <div className="quick-stats" aria-label="運用想定">
-              <span>
-                <strong>10</strong>
-                名規模
-              </span>
-              <span>
-                <strong>TS</strong>
-                中心
-              </span>
-              <span>
-                <strong>CF</strong>
-                無料運用
-              </span>
-            </div>
-          </div>
-
-          <div className="status-panel" aria-label="研究サマリー">
-            <div className="panel-heading">
-              <Layers3 size={18} />
-              <span>Research Modules</span>
-            </div>
-            <div className="signal-row">
-              <span>IV</span>
-              <div className="signal-track">
-                <i style={{ width: "82%" }} />
-              </div>
-            </div>
-            <div className="signal-row">
-              <span>DMG</span>
-              <div className="signal-track">
-                <i style={{ width: "68%" }} />
-              </div>
-            </div>
-            <div className="signal-row">
-              <span>SIM</span>
-              <div className="signal-track">
-                <i style={{ width: "74%" }} />
-              </div>
-            </div>
-          </div>
+          <a className="btn btn-secondary" href="#/research/sim">
+            シミュレーション
+          </a>
         </div>
       </section>
 
       <section className="research-grid" aria-label="研究メニュー">
-        {researchCards.map((card) => {
+        {researchCards.map((card, index) => {
           const Icon = card.icon;
-          return (
-            <a className={`research-card ${card.accent}`} href={card.href} key={card.title}>
+          const body = (
+            <>
               <span className="card-icon">
-                <Icon size={22} strokeWidth={2.2} />
+                <Icon size={20} strokeWidth={2.2} />
               </span>
               <span className="card-body">
-                <span className="card-kicker">{card.status}</span>
+                <span className="card-kicker">{card.ready ? "利用できる" : "準備中"}</span>
                 <span className="card-title">{card.title}</span>
                 <span className="card-description">{card.description}</span>
                 <span className="metric-list">
@@ -153,18 +79,35 @@ export function HomePage() {
                   ))}
                 </span>
               </span>
-              <ChevronRight className="card-arrow" size={19} aria-hidden="true" />
-            </a>
+              {card.ready ? <ChevronRight className="card-arrow" size={18} aria-hidden="true" /> : null}
+            </>
+          );
+
+          if (card.ready && card.href) {
+            return (
+              <a
+                className="research-card is-ready rise"
+                href={card.href}
+                key={card.title}
+                style={{ animationDelay: `${80 + index * 70}ms` }}
+              >
+                {body}
+              </a>
+            );
+          }
+
+          return (
+            <article
+              className="research-card is-soon rise"
+              key={card.title}
+              aria-disabled="true"
+              style={{ animationDelay: `${80 + index * 70}ms` }}
+            >
+              {body}
+            </article>
           );
         })}
       </section>
-
-      <section className="build-note" aria-label="構築方針">
-        <div>
-          <Calculator size={18} />
-          <span>Next: 各研究モジュールの入力モデルとCloudflare D1/KV/R2の使い分けを設計</span>
-        </div>
-      </section>
-    </main>
+    </div>
   );
 }

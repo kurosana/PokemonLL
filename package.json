@@ -7,7 +7,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "generate:pokemon-names": "node scripts/generate-pokemon-name-map.mjs"
+    "generate:pokemon-names": "node scripts/generate-pokemon-name-map.mjs",
+    "generate:pvp-data": "node scripts/generate-pvp-data.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

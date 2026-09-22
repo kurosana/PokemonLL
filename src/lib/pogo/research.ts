@@ -56,6 +56,19 @@ export const leagueConfigs: LeagueConfig[] = [
   { id: "custom", label: "カスタム", cap: 1500 },
 ];
 
+export function leagueCap(leagueId: LeagueId, customCap = 1500) {
+  if (leagueId === "custom") return customCap;
+  return leagueConfigs.find((league) => league.id === leagueId)?.cap ?? 1500;
+}
+
+export function pickPreferredEntry(group: SpeciesGroup) {
+  return group.entries.find((entry) => entry.form === "Normal") ?? group.entries[0];
+}
+
+export function speciesDisplayName(group: SpeciesGroup) {
+  return getPokemonDisplayName(group.pokemonId, group.name);
+}
+
 const levelOrder = (a: number, b: number) => a - b;
 
 export function buildCpMultiplierMap(records: CpMultiplierRecord[]) {
@@ -186,4 +199,26 @@ export function computeBestRankings(
   });
 
   return rows.map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+export function findMaxLevelBuild(
+  record: PogoStatRecord,
+  atkIv: number,
+  defIv: number,
+  staIv: number,
+  levels: number[],
+  byLevel: Map<string, number>,
+  cap: number,
+) {
+  let best: (DerivedStats & { level: number }) | null = null;
+
+  for (const level of levels) {
+    const multiplier = byLevel.get(level.toFixed(1));
+    if (multiplier === undefined) continue;
+    const derived = computeDerivedStats(record, atkIv, defIv, staIv, multiplier);
+    if (derived.cp > cap) continue;
+    best = { ...derived, level };
+  }
+
+  return best;
 }
