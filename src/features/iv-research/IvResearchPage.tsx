@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ListFilter, Search } from "lucide-react";
+import { PokemonDotSprite } from "../../components/PokemonDotSprite";
 import {
   buildCpMultiplierMap,
   computeBestRankings,
@@ -261,10 +262,13 @@ export function IvResearchPage() {
                         setSelectedForm(pickPreferredEntry(group).form);
                       }}
                     >
-                      <span className="species-name">{speciesDisplayName(group)}</span>
-                      <span className="species-meta">
-                        No.{String(group.pokemonId).padStart(4, "0")}
-                        {group.entries.length > 1 ? ` · ${group.entries.length}フォルム` : ""}
+                      <PokemonDotSprite pokemonId={group.pokemonId} alt="" size={40} />
+                      <span className="species-item-text">
+                        <span className="species-name">{speciesDisplayName(group)}</span>
+                        <span className="species-meta">
+                          No.{String(group.pokemonId).padStart(4, "0")}
+                          {group.entries.length > 1 ? ` · ${group.entries.length}フォルム` : ""}
+                        </span>
                       </span>
                     </button>
                   );
@@ -276,6 +280,14 @@ export function IvResearchPage() {
           <div className="iv-results">
             <section className="panel">
               <div className="selected-head">
+                {selectedGroup ? (
+                  <PokemonDotSprite
+                    pokemonId={selectedGroup.pokemonId}
+                    alt=""
+                    size={64}
+                    className="selected-head-sprite"
+                  />
+                ) : null}
                 <div>
                   <p className="eyebrow">選択中</p>
                   <h2 className="selected-name">

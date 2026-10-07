@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { PokemonDotSprite } from "../../components/PokemonDotSprite";
 import { speciesDisplayName, type SpeciesGroup } from "../../lib/pogo/research";
 
 export function SpeciesPicker({
@@ -59,8 +60,16 @@ export function SpeciesPicker({
                 className={`species-item${selected ? " is-selected" : ""}`}
                 onClick={() => onSelect(group)}
               >
-                <span className="species-name">{speciesDisplayName(group)}</span>
-                <span className="species-meta">No.{String(group.pokemonId).padStart(4, "0")}</span>
+                <PokemonDotSprite
+                  pokemonId={group.pokemonId}
+                  alt=""
+                  size={compact ? 36 : 40}
+                  className="species-item-sprite"
+                />
+                <span className="species-item-text">
+                  <span className="species-name">{speciesDisplayName(group)}</span>
+                  <span className="species-meta">No.{String(group.pokemonId).padStart(4, "0")}</span>
+                </span>
               </button>
             );
           })
