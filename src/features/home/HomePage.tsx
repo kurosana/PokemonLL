@@ -11,7 +11,7 @@ type ResearchCard = {
 
 const researchCards: ResearchCard[] = [
   {
-    title: "個体値研究",
+    title: "ポケモン個体値研究",
     description: "1匹ごとにCP、SCP、攻撃・防御・HPを比較して、育成候補を絞ります。",
     icon: Gauge,
     metrics: ["SCP順位", "実数値", "リーグ別"],
@@ -47,13 +47,13 @@ export function HomePage() {
   return (
     <div className="page-home">
       <section className="home-intro rise">
-        <p className="eyebrow">Pokemon GO Battle Research</p>
+        <p className="eyebrow">ポケモンGO バトル研究</p>
         <h1>PokemonLL</h1>
         <p className="lead">ポケモンGOの育成を、数字で比較する研究ツールです。</p>
         <p className="note">個体値、ブレイク、シミュレーションを同じ場所で調べられます。</p>
         <div className="home-cta-row">
           <a className="btn btn-primary" href="#/research/iv">
-            個体値研究を開く
+            ポケモン個体値研究を開く
           </a>
           <a className="btn btn-secondary" href="#/research/sim">
             シミュレーション
