@@ -4,6 +4,7 @@ import { HomePage } from "../features/home/HomePage";
 import { IvResearchPage } from "../features/iv-research/IvResearchPage";
 import { SimResearchPage } from "../features/sim-research/SimResearchPage";
 import { SiteLayout } from "./Layout";
+import { PokemonSearchHost } from "../features/shared/PokemonSearchHost";
 
 type Route = "/" | "/research/iv" | "/research/break" | "/research/sim";
 
@@ -33,6 +34,7 @@ export function App() {
 
   return (
     <SiteLayout title={titles[route]} route={route}>
+      <PokemonSearchHost />
       {route === "/research/iv" ? <IvResearchPage /> : null}
       {route === "/research/break" ? <BreakResearchPage /> : null}
       {route === "/research/sim" ? <SimResearchPage /> : null}
