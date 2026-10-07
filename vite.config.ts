@@ -15,6 +15,56 @@ const mimeByExt: Record<string, string> = {
   ".gif": "image/gif",
 };
 
+function pokemonPickCounts(): Plugin {
+  const file = path.join(projectRoot, "work/pokemon-pick-counts.json");
+  const read = () => {
+    try {
+      return JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, number>;
+    } catch {
+      return {};
+    }
+  };
+  const write = (counts: Record<string, number>) => {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(counts));
+  };
+
+  return {
+    name: "pokemon-pick-counts",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split("?")[0] ?? "";
+        if (url !== "/api/pokemon-picks") return next();
+        if (req.method === "GET") {
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(read()));
+          return;
+        }
+        if (req.method === "POST") {
+          const chunks: Buffer[] = [];
+          req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+          req.on("end", () => {
+            const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as { id?: number };
+            const id = String(Math.floor(Number(body.id)));
+            if (!/^\d+$/.test(id) || id === "0") {
+              res.statusCode = 400;
+              res.end("bad id");
+              return;
+            }
+            const counts = read();
+            counts[id] = (counts[id] ?? 0) + 1;
+            write(counts);
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(counts));
+          });
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 function rootImageDir(): Plugin {
   return {
     name: "root-image-dir",
@@ -42,7 +92,7 @@ function rootImageDir(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), cloudflare(), rootImageDir()],
+  plugins: [react(), cloudflare(), rootImageDir(), pokemonPickCounts()],
   build: {
     outDir: "dist",
   },

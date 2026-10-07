@@ -127,6 +127,20 @@ export function getPokemonDisplayName(pokemonId: number, fallback: string) {
   return pokemonNameMapJa[pokemonId] ?? fallback;
 }
 
+/** CPは切り捨て前のHPを使う。HP実数値のfloorをCPに入れると順位がずれる。 */
+export function computeCp(
+  record: PogoStatRecord,
+  atkIv: number,
+  defIv: number,
+  staIv: number,
+  multiplier: number,
+) {
+  const attack = record.base_attack + atkIv;
+  const defense = record.base_defense + defIv;
+  const stamina = record.base_stamina + staIv;
+  return Math.max(10, Math.floor((attack * Math.sqrt(defense) * Math.sqrt(stamina) * multiplier * multiplier) / 10));
+}
+
 export function computeDerivedStats(
   record: PogoStatRecord,
   atkIv: number,
@@ -137,10 +151,15 @@ export function computeDerivedStats(
   const attack = (record.base_attack + atkIv) * multiplier;
   const defense = (record.base_defense + defIv) * multiplier;
   const stamina = Math.max(10, Math.floor((record.base_stamina + staIv) * multiplier));
-  const cp = Math.max(10, Math.floor((attack * Math.sqrt(defense) * Math.sqrt(stamina)) / 10));
+  const cp = computeCp(record, atkIv, defIv, staIv, multiplier);
   const statProduct = attack * defense * stamina;
 
   return { attack, defense, stamina, cp, statProduct };
+}
+
+/** みんポケ表示に合わせ、実数値積を1000で割って切り捨てた値。 */
+export function formatScp(statProduct: number) {
+  return Math.floor(statProduct / 1000);
 }
 
 export function computeBestRankings(
@@ -198,7 +217,15 @@ export function computeBestRankings(
     return a.staIv - b.staIv;
   });
 
-  return rows.map((row, index) => ({ ...row, rank: index + 1 }));
+  let lastProduct = Number.POSITIVE_INFINITY;
+  let lastRank = 0;
+  return rows.map((row, index) => {
+    const same = Math.abs(row.statProduct - lastProduct) < 1e-6;
+    const rank = same ? lastRank : index + 1;
+    lastProduct = row.statProduct;
+    lastRank = rank;
+    return { ...row, rank };
+  });
 }
 
 export function findMaxLevelBuild(

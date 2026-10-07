@@ -2,6 +2,7 @@
 dist/
 node_modules/
 work/npm-cache/
+work/pokemon-pick-counts.json
 
 # wrangler files
 .wrangler
