@@ -50,7 +50,6 @@ export function HomePage() {
         <p className="eyebrow">ポケモンGO バトル研究</p>
         <h1>PokemonLL</h1>
         <p className="lead">ポケモンGOの育成を、数字で比較する研究ツールです。</p>
-        <p className="note">個体値、ブレイク、シミュレーションを同じ場所で調べられます。</p>
         <div className="home-cta-row">
           <a className="btn btn-primary" href="#/research/iv">
             ポケモン個体値研究を開く
