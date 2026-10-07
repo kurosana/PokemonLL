@@ -11,7 +11,6 @@
 ```bash
 npm install
 npm run generate:pokemon-names
-npm run generate:placeholder-sprites
 npm run dev
 npm run build
 ```
@@ -23,7 +22,7 @@ npm run build
 - `src/features/iv-research/`: individual research page
 - `src/lib/pogo/`: shared Pokemon GO domain logic and generated name map
 - `scripts/`: data-generation scripts
-- `public/assets/pokemon/dot/`: 64×64 placeholder dot sprites (`{pokemonId}.svg`). Replace with real art using the same filenames (PNG/SVG).
+- `Image/`: 図鑑ドット絵（`0001.png` など4桁図鑑番号）。無い場合は `placeholder.svg` を表示（`PokemonDotSprite`）。
 
 ## Cloudflare Pages
 
