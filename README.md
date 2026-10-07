@@ -22,6 +22,7 @@ npm run build
 - `src/features/iv-research/`: individual research page
 - `src/lib/pogo/`: shared Pokemon GO domain logic and generated name map
 - `scripts/`: data-generation scripts
+- `Image/`: 図鑑ドット絵（`0001.png` など4桁図鑑番号）。無い場合は `placeholder.svg` を表示（`PokemonDotSprite`）。
 
 ## Cloudflare Pages
 

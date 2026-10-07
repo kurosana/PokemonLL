@@ -670,6 +670,11 @@ h1 {
   padding: 0.7rem 0.8rem;
 }
 
+.pokemon-dot-sprite {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
 .species-item:hover,
 .ranking-row:hover {
   border-color: var(--hair);
