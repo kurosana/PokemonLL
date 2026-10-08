@@ -1570,7 +1570,7 @@ select.input {
   flex: none;
 }
 
-.rank-filters .rank-scp-select {
+.rank-filters .input.rank-scp-select {
   width: auto;
   flex: 1;
   min-width: 0;
