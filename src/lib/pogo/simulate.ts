@@ -1,3 +1,7 @@
+/**
+ * 対戦の細かい仕様は docs/対戦仕様.md。
+ * このファイルを直す前に、その文書を読む。連戦モードでも同じ順で処理する。
+ */
 import { damageForMove, type PvpMove } from "./combat";
 
 export type ChargeTiming = "asap" | "cct";
@@ -15,6 +19,22 @@ export type FighterInput = {
   shields: number;
   timing: ChargeTiming;
   applyChanceBuffs: boolean;
+  /** 指定ターンに交代する。出てきたポケモンはそのターン技を出さない。シールドは引き継ぐ。 */
+  switchPlan?: SwitchPlan | null;
+};
+
+export type SwitchPlan = {
+  turn: number;
+  next: {
+    label: string;
+    attack: number;
+    defense: number;
+    hp: number;
+    types: string[];
+    shadow: boolean;
+    fast: PvpMove;
+    charged: PvpMove[];
+  };
 };
 
 export type TimelineEvent = {
@@ -146,22 +166,38 @@ function applyBuffs(self: FighterState, other: FighterState, move: PvpMove, forc
   if (target === "opponent" || target === "both") apply(other);
 }
 
-function resolveOrder(a: FighterState, b: FighterState) {
-  if (!a.action || !b.action) return a.action ? [a, b] : [b, a];
-  if (a.action.kind === "charged" && b.action.kind === "charged") {
-    const atkA = a.attack * (a.shadow ? 1.2 : 1);
-    const atkB = b.attack * (b.shadow ? 1.2 : 1);
-    if (atkA !== atkB) return atkA > atkB ? [a, b] : [b, a];
-    return [a, b];
-  }
-  if (a.action.kind !== b.action.kind) {
-    const fast = a.action.kind === "fast" ? a : b;
-    if (fast.action && fast.action.totalTurns <= 1) {
-      return a.action.kind === "charged" ? [a, b] : [b, a];
-    }
-    return a.action.kind === "fast" ? [a, b] : [b, a];
-  }
-  return [a, b];
+function cmpAttack(fighter: FighterState) {
+  return fighter.attack * (fighter.shadow ? 1.2 : 1);
+}
+
+function chargeOrder(fighters: FighterState[]) {
+  return [...fighters].sort((left, right) => {
+    const diff = cmpAttack(right) - cmpAttack(left);
+    if (diff !== 0) return diff;
+    return Math.random() < 0.5 ? -1 : 1;
+  });
+}
+
+function applySwitch(fighter: FighterState, next: SwitchPlan["next"]) {
+  const shieldsLeft = fighter.shieldsLeft;
+  const id = fighter.id;
+  const timing = fighter.timing;
+  const applyChanceBuffs = fighter.applyChanceBuffs;
+  const shields = fighter.shields;
+  Object.assign(fighter, {
+    ...next,
+    id,
+    shields,
+    shieldsLeft,
+    timing,
+    applyChanceBuffs,
+    switchPlan: null,
+    energy: 0,
+    attackStage: 0,
+    defenseStage: 0,
+    action: null,
+    hp: next.hp,
+  });
 }
 
 function createFighter(id: FighterId, input: FighterInput): FighterState {
@@ -272,10 +308,14 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
       [a, b],
       [b, a],
     ] as const) {
-      if (self.hp <= 0 || self.action) continue;
+      if (self.hp <= 0) continue;
+      if (self.switchPlan?.turn === turn) {
+        self.action = null;
+        continue;
+      }
+      if (self.action) continue;
       const charged = pickCharged(self, other);
       if (charged && shouldThrow(self, other, charged)) {
-        self.energy -= charged.energy;
         self.action = { kind: "charged", move: charged, turnsLeft: 1, totalTurns: 1, id: nextActionId++, startTurn: turn };
       } else {
         const turns = Math.max(1, self.fast.turns);
@@ -296,55 +336,77 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
       b: { damage: 0, shielded: false },
     };
 
-    const finishing = [a, b].filter((fighter) => {
-      if (!fighter.action) return false;
-      fighter.action.turnsLeft -= 1;
-      return fighter.action.turnsLeft <= 0;
-    });
+    // 1. 交代。1ターンを使い、出てきたポケモンはこのターン技を出さない。
+    for (const fighter of [a, b]) {
+      if (fighter.hp <= 0 || fighter.switchPlan?.turn !== turn) continue;
+      applySwitch(fighter, fighter.switchPlan.next);
+    }
 
-    const chargedThisTurn = finishing.some((fighter) => fighter.action?.kind === "charged");
-    if (chargedThisTurn) {
-      for (const fighter of [a, b]) {
-        if (fighter.action?.kind === "fast" && fighter.action.turnsLeft > 0) {
-          fighter.action.turnsLeft = 0;
-          finishing.push(fighter);
-        }
+    // 2. スペシャルアタック。攻撃実数値が高い順。同値ならランダム。1発ごとに戦闘不能を見る。
+    const chargers = chargeOrder([a, b].filter((fighter) => fighter.action?.kind === "charged" && fighter.hp > 0));
+    const resolved = new Set<number>();
+    let faintedFromSpecial = false;
+    let specialLanded = false;
+    for (const self of chargers) {
+      const other = self.id === "a" ? b : a;
+      const action = self.action;
+      if (!action || self.hp <= 0 || other.hp <= 0) {
+        self.action = null;
+        continue;
+      }
+      self.energy = Math.max(0, self.energy - action.move.energy);
+      let damage = 0;
+      let shielded = false;
+      if (other.shieldsLeft > 0) {
+        other.shieldsLeft -= 1;
+        damage = 1;
+        shielded = true;
+      } else {
+        damage = damageOf(self, other, action.move);
+      }
+      other.hp -= damage;
+      applyBuffs(self, other, action.move, self.applyChanceBuffs);
+      dealt[self.id] = { damage, shielded };
+      resolved.add(action.id);
+      self.action = null;
+      specialLanded = true;
+      if (a.hp <= 0 || b.hp <= 0) {
+        faintedFromSpecial = true;
+        break;
       }
     }
 
-    const ordered = finishing.length === 2 ? resolveOrder(finishing[0], finishing[1]) : finishing;
-
-    for (const self of ordered) {
-      const other = self.id === "a" ? b : a;
-      const action = self.action;
-      if (!action || self.hp <= 0) continue;
-
-      let damage = 0;
-      let shielded = false;
-      if (action.kind === "fast") {
-        self.energy = Math.min(100, self.energy + action.move.energyGain);
-        damage = damageOf(self, other, action.move);
-        other.hp -= damage;
-      } else {
-        if (other.shieldsLeft > 0) {
-          other.shieldsLeft -= 1;
-          damage = 1;
-          shielded = true;
-        } else {
-          damage = damageOf(self, other, action.move);
-        }
-        other.hp -= damage;
-        applyBuffs(self, other, action.move, self.applyChanceBuffs);
+    // 3. スペシャルで戦闘不能なら、残りのノーマルアタックはダメージもチャージも無しで打ち切る。
+    if (faintedFromSpecial) {
+      for (const fighter of [a, b]) {
+        if (fighter.action) fighter.action = null;
       }
-
-      dealt[self.id] = { damage, shielded };
-      self.action = null;
-      if (a.hp <= 0 || b.hp <= 0) break;
+    } else {
+      // 4. 最終ターンのノーマルアタックだけ、ダメージとチャージを入れる。
+      //    このターンにスペシャルがあった技は、最終ターンまで進めてから処理する。
+      const finishing: FighterState[] = [];
+      for (const fighter of [a, b]) {
+        if (fighter.action?.kind !== "fast" || fighter.hp <= 0) continue;
+        fighter.action.turnsLeft -= 1;
+        if (specialLanded && fighter.action.turnsLeft > 0) fighter.action.turnsLeft = 0;
+        if (fighter.action.turnsLeft <= 0) finishing.push(fighter);
+      }
+      for (const self of finishing) {
+        const other = self.id === "a" ? b : a;
+        const action = self.action;
+        if (!action) continue;
+        self.energy = Math.min(100, self.energy + action.move.energyGain);
+        const damage = damageOf(self, other, action.move);
+        other.hp -= damage;
+        dealt[self.id] = { damage, shielded: false };
+        self.action = null;
+      }
     }
 
     const snap = snapshot(a, b);
     for (const { fighter, action } of occupied) {
       if (!action) continue;
+      if (action.kind === "charged" && !resolved.has(action.id)) continue;
       timeline.push({
         turn,
         actor: fighter.id,
