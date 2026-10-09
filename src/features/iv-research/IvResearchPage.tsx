@@ -461,7 +461,7 @@ function DominateMark({ ivs }: { ivs: string[] }) {
       if (!rect) return;
       const half = 52;
       const left = Math.min(window.innerWidth - 8 - half, Math.max(8 + half, rect.left + rect.width / 2));
-      const above = rect.bottom + 128 > window.innerHeight;
+      const above = rect.bottom + 48 > window.innerHeight;
       setBox({ top: above ? rect.top - 4 : rect.bottom + 4, left, above });
     };
     place();
