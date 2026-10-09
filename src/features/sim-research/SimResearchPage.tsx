@@ -144,6 +144,7 @@ export function SimResearchPage() {
               onChange={setSideB}
             />
           </div>
+          <p className="note">最適は相手の技に合わせます。追加効果を入れると、確率の変化も必ず起きます。</p>
 
           {result && fighterA && fighterB ? (
             <>
@@ -345,13 +346,10 @@ function FighterCard({
         ) : (
           <img className="pokemon-dot-sprite" src="/Image/sprite/Question_Mark.png" alt="" width={48} height={48} />
         )}
-        <span>
-          <span className="identity-pick-name">{side.record ? side.label : "ポケモンを選ぶ"}</span>
-          <span className="note">{side.record ? "押すと入れ替え" : "検索して入れます"}</span>
-        </span>
+        <span className="identity-pick-name">{side.record ? side.label : "検索"}</span>
       </button>
 
-      {stats ? (
+      {!side.record ? null : stats ? (
         <p className="sim-cp-line">
           <span>CP</span>
           <strong className="sim-cp num">{stats.cp}</strong>
@@ -365,6 +363,8 @@ function FighterCard({
 
       {side.record && !packed ? <p className="note">技データがありません。</p> : null}
 
+      {side.record ? (
+        <>
       <div className="sim-ivs">
         <IvBox label="攻撃" value={side.atkIv} onChange={(atkIv) => onChange({ ...side, atkIv })} />
         <IvBox label="防御" value={side.defIv} onChange={(defIv) => onChange({ ...side, defIv })} />
@@ -425,10 +425,9 @@ function FighterCard({
           <option value="cct">最適</option>
         </select>
       </label>
-      <p className="note">最適は、相手の技に合わせてスペシャルアタックを出します。</p>
       <label className="check-row">
         <input type="checkbox" checked={side.shadow} onChange={(event) => onChange({ ...side, shadow: event.target.checked })} />
-        シャドウ
+        <span>シャドウ</span>
       </label>
       <label className="check-row">
         <input
@@ -436,8 +435,10 @@ function FighterCard({
           checked={side.applyChanceBuffs}
           onChange={(event) => onChange({ ...side, applyChanceBuffs: event.target.checked })}
         />
-        追加効果を必ず入れる
+        <span>追加効果</span>
       </label>
+        </>
+      ) : null}
     </section>
   );
 }

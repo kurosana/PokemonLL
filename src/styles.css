@@ -2212,8 +2212,22 @@ select.input {
   min-height: 2.75rem;
 }
 
+.sim-card .identity-pick {
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+
+.sim-card .identity-pick-name {
+  font-size: 0.95rem;
+}
+
 .sim-card .check-row {
+  display: flex;
+  width: 100%;
   align-items: flex-start;
+}
+
+.sim-card .check-row span {
+  min-width: 0;
 }
 
 .sim-outcome {
