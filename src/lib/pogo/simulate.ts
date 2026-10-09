@@ -166,8 +166,9 @@ function applyBuffs(self: FighterState, other: FighterState, move: PvpMove, forc
   if (target === "opponent" || target === "both") apply(other);
 }
 
+/** 同時発動の順番は攻撃の実数値だけ。シャドウの1.2倍はダメージ計算にだけ使う。 */
 function cmpAttack(fighter: FighterState) {
-  return fighter.attack * (fighter.shadow ? 1.2 : 1);
+  return fighter.attack;
 }
 
 function chargeOrder(fighters: FighterState[]) {
@@ -342,7 +343,7 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
       applySwitch(fighter, fighter.switchPlan.next);
     }
 
-    // 2. スペシャルアタック。攻撃実数値が高い順。同値ならランダム。1発ごとに戦闘不能を見る。
+    // 2. スペシャルアタック。攻撃の実数値が高い順。シャドウは入れない。同値ならランダム。1発ごとに戦闘不能を見る。
     const chargers = chargeOrder([a, b].filter((fighter) => fighter.action?.kind === "charged" && fighter.hp > 0));
     const resolved = new Set<number>();
     let faintedFromSpecial = false;
