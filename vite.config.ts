@@ -44,9 +44,9 @@ function pokemonPickCounts(): Plugin {
           const chunks: Buffer[] = [];
           req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
           req.on("end", () => {
-            const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as { id?: number };
-            const id = String(Math.floor(Number(body.id)));
-            if (!/^\d+$/.test(id) || id === "0") {
+            const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as { id?: number | string };
+            const id = String(body.id ?? "");
+            if (!/^[\w:.-]+$/.test(id) || id.length > 96) {
               res.statusCode = 400;
               res.end("bad id");
               return;
@@ -66,8 +66,13 @@ function pokemonPickCounts(): Plugin {
 }
 
 function rootImageDir(): Plugin {
+  let clientOutDir = path.join(projectRoot, "dist", "client");
   return {
     name: "root-image-dir",
+    configResolved(config) {
+      const fromClient = config.environments?.client?.build?.outDir;
+      if (fromClient) clientOutDir = path.resolve(config.root, fromClient);
+    },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url?.split("?")[0] ?? "";
@@ -84,9 +89,9 @@ function rootImageDir(): Plugin {
     },
     closeBundle() {
       if (!fs.existsSync(imageRoot)) return;
-      const outDir = path.join(projectRoot, "dist", "Image");
-      fs.mkdirSync(path.dirname(outDir), { recursive: true });
-      fs.cpSync(imageRoot, outDir, { recursive: true });
+      const dest = path.join(clientOutDir, "Image");
+      fs.mkdirSync(clientOutDir, { recursive: true });
+      fs.cpSync(imageRoot, dest, { recursive: true });
     },
   };
 }

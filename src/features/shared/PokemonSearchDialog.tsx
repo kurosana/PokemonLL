@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
+import { matchesNameQuery } from "../../lib/pogo/kanaSearch";
 import { speciesDisplayName, type SpeciesGroup } from "../../lib/pogo/research";
 
 export function PokemonSearchDialog({
@@ -22,28 +23,19 @@ export function PokemonSearchDialog({
     if (!normalized) {
       return [...groups]
         .sort((a, b) => {
-          const countA = counts[String(a.pokemonId)] ?? 0;
-          const countB = counts[String(b.pokemonId)] ?? 0;
+          const countA = searchCount(a, counts);
+          const countB = searchCount(b, counts);
           if (countB !== countA) return countB - countA;
-          return a.pokemonId - b.pokemonId;
+          return a.pokemonId - b.pokemonId || (a.label ?? "").localeCompare(b.label ?? "", "ja");
         })
         .slice(0, 100);
     }
 
     return groups
       .filter((group) => {
-        const english = group.name.toLowerCase();
-        const japanese = speciesDisplayName(group).toLowerCase();
-        const dex = String(group.pokemonId);
-        const padded = dex.padStart(4, "0");
-        const form = group.entries.some((entry) => entry.form.toLowerCase().includes(normalized));
-        return (
-          english.includes(normalized) ||
-          japanese.includes(normalized) ||
-          dex === normalized ||
-          padded === normalized ||
-          form
-        );
+        const entry = group.entries[0];
+        const english = `${entry?.pokemon_name ?? ""} ${entry?.form ?? ""}`.trim();
+        return matchesNameQuery(normalized, speciesDisplayName(group), english, group.pokemonId);
       })
       .slice(0, 100);
   }, [counts, groups, query]);
@@ -71,7 +63,7 @@ export function PokemonSearchDialog({
           <input
             className="input"
             type="search"
-            placeholder="ポケモン名で検索"
+            placeholder="ひらがな・カタカナ・ローマ字・図鑑番号"
             autoComplete="off"
             spellCheck={false}
             value={query}
@@ -83,7 +75,7 @@ export function PokemonSearchDialog({
           </button>
         </div>
         <p className="search-overlay-hint">
-          {query.trim() ? "名前か図鑑番号" : "選択回数が多い順に100匹"}
+          {query.trim() ? "ひらがな・カタカナ・ローマ字・英語名・図鑑番号" : "選択回数が多い順に100匹"}
         </p>
         <div className="search-overlay-results" role="listbox">
           {results.length === 0 ? (
@@ -96,7 +88,16 @@ export function PokemonSearchDialog({
                 className="search-result"
                 onClick={() => onSelect(group)}
               >
-                <PokemonDotSprite pokemonId={group.pokemonId} alt="" size={40} />
+                <span className="sprite-slot">
+                  <PokemonDotSprite
+                    pokemonId={group.pokemonId}
+                    form={group.exactSprite ? undefined : group.entries[0]?.form}
+                    exact={group.exactSprite}
+                    spriteSuffix={group.spriteSuffix}
+                    alt=""
+                    size={40}
+                  />
+                </span>
                 <span className="search-result-name">{speciesDisplayName(group)}</span>
                 <span className="search-result-no num">No.{String(group.pokemonId).padStart(4, "0")}</span>
               </button>
@@ -106,4 +107,11 @@ export function PokemonSearchDialog({
       </div>
     </div>
   );
+}
+
+function searchCount(group: SpeciesGroup, counts: Record<string, number>) {
+  const own = counts[group.name] ?? 0;
+  const entry = group.entries[0];
+  const legacy = entry?.form === "Normal" && !group.exactSprite ? (counts[String(group.pokemonId)] ?? 0) : 0;
+  return own + legacy;
 }

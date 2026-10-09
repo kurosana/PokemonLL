@@ -9,8 +9,8 @@ type SiteLayoutProps = {
 const navItems = [
   { href: "#/", label: "ホーム", route: "/" },
   { href: "#/research/iv", label: "個体値", route: "/research/iv" },
-  { href: "#/research/break", label: "ブレイク", route: "/research/break" },
   { href: "#/research/sim", label: "シミュ", route: "/research/sim" },
+  { href: "#/research/break", label: "ブレイク", route: "/research/break" },
 ] as const;
 
 export function SiteLayout({ title, route = "/", children }: SiteLayoutProps) {
@@ -57,6 +57,13 @@ export function SiteLayout({ title, route = "/", children }: SiteLayoutProps) {
         {children}
       </main>
       <footer className="site-footer">
+        {route === "/" ? (
+          <p>
+            <a className="footer-admin" href="#/admin">
+              管理者ログイン
+            </a>
+          </p>
+        ) : null}
         <p>種族値は pogoapi.net、技データは PvP 公開データを元にしています。</p>
         <p>PokemonLL</p>
       </footer>

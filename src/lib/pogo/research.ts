@@ -14,7 +14,7 @@ export type CpMultiplierRecord = {
   multiplier: number;
 };
 
-export type LeagueId = "great" | "ultra" | "master" | "custom";
+export type LeagueId = "little" | "great" | "ultra" | "master" | "custom";
 
 export type LeagueConfig = {
   id: LeagueId;
@@ -26,7 +26,13 @@ export type SpeciesGroup = {
   name: string;
   pokemonId: number;
   entries: PogoStatRecord[];
+  /** 検索でフォルムやメガを分けて出すときの表示名。 */
+  label?: string;
+  exactSprite?: boolean;
+  spriteSuffix?: number | null;
 };
+
+export const IV_FLOORS = [0, 1, 2, 3, 4, 5, 6, 10, 12] as const;
 
 export type DerivedStats = {
   attack: number;
@@ -50,6 +56,7 @@ export type RankingRow = {
 };
 
 export const leagueConfigs: LeagueConfig[] = [
+  { id: "little", label: "リトルカップ", cap: 500 },
   { id: "great", label: "スーパーリーグ", cap: 1500 },
   { id: "ultra", label: "ハイパーリーグ", cap: 2500 },
   { id: "master", label: "マスターリーグ", cap: 9999 },
@@ -66,7 +73,7 @@ export function pickPreferredEntry(group: SpeciesGroup) {
 }
 
 export function speciesDisplayName(group: SpeciesGroup) {
-  return getPokemonDisplayName(group.pokemonId, group.name);
+  return group.label ?? getPokemonDisplayName(group.pokemonId, group.name);
 }
 
 const levelOrder = (a: number, b: number) => a - b;
@@ -157,9 +164,78 @@ export function computeDerivedStats(
   return { attack, defense, stamina, cp, statProduct };
 }
 
-/** みんポケ表示に合わせ、実数値積を1000で割って切り捨てた値。 */
+/** みんポケのSCP。端数を切ったHPを含む攻撃×防御×HPを、2/3乗して10で割り、小数点以下を切り捨てる。 */
 export function formatScp(statProduct: number) {
-  return Math.floor(statProduct / 1000);
+  if (!(statProduct > 0)) return 0;
+  return Math.floor(Math.pow(statProduct, 2 / 3) / 10);
+}
+
+const STAT_EPS = 1e-4;
+
+function dominates(current: RankingRow, other: RankingRow) {
+  if (other.atkIv === current.atkIv && other.defIv === current.defIv && other.staIv === current.staIv) return false;
+  const attackUp = other.attack > current.attack + STAT_EPS;
+  const defenseUp = other.defense > current.defense + STAT_EPS;
+  const staminaUp = other.stamina > current.stamina;
+  return (
+    other.attack >= current.attack - STAT_EPS &&
+    other.defense >= current.defense - STAT_EPS &&
+    other.stamina >= current.stamina &&
+    (attackUp || defenseUp || staminaUp)
+  );
+}
+
+/** 攻撃・防御・HPがすべて同じか上で、どれか一つは上の個体がいる。 */
+export function hasStrictUpgrade(current: RankingRow, rows: RankingRow[]) {
+  return rows.some((other) => dominates(current, other));
+}
+
+/** 上位互換の個体値。順位の良いものから。 */
+export function strictUpgradeIvs(current: RankingRow, rows: RankingRow[]) {
+  return rows
+    .filter((other) => dominates(current, other))
+    .sort((a, b) => a.rank - b.rank || a.atkIv - b.atkIv || a.defIv - b.defIv || a.staIv - b.staIv)
+    .map((other) => `${other.atkIv}-${other.defIv}-${other.staIv}`);
+}
+
+/** 相棒ボーナス。ゲームマスターのレベル51と、50→51の半レベル刻み。 */
+export const BUDDY_CPM: CpMultiplierRecord[] = [
+  { level: 50.5, multiplier: 0.84279999 },
+  { level: 51, multiplier: 0.84529999 },
+];
+
+export function withBuddyLevels(
+  map: { byLevel: Map<string, number>; levels: number[] },
+  buddy: boolean,
+) {
+  if (!buddy) return map;
+  const byLevel = new Map(map.byLevel);
+  const levels = [...map.levels];
+  for (const extra of BUDDY_CPM) {
+    const key = extra.level.toFixed(1);
+    if (byLevel.has(key)) continue;
+    byLevel.set(key, extra.multiplier);
+    levels.push(extra.level);
+  }
+  levels.sort(levelOrder);
+  return { byLevel, levels };
+}
+
+export function formatPlace(rank: number) {
+  return `${rank}位`;
+}
+
+/** 攻撃・防御の表示。通常は小数第1位。個体チェック、並べ替え中の列、幅のある順位表は第2位。 */
+export function formatBattleStat(value: number, digits: 1 | 2) {
+  return value.toFixed(digits);
+}
+
+/** 1位は金、2–9位は赤、10–99位はオレンジ。 */
+export function placeTone(rank: number) {
+  if (rank === 1) return "is-gold";
+  if (rank <= 9) return "is-hot";
+  if (rank <= 99) return "is-warm";
+  return "";
 }
 
 export function computeBestRankings(
@@ -167,20 +243,24 @@ export function computeBestRankings(
   levels: number[],
   byLevel: Map<string, number>,
   cap: number,
+  maxLevel = 50,
+  ivFloor = 0,
 ) {
   const rows: RankingRow[] = [];
+  const floor = Math.max(0, Math.min(15, Math.floor(ivFloor)));
 
-  for (let atkIv = 0; atkIv <= 15; atkIv += 1) {
-    for (let defIv = 0; defIv <= 15; defIv += 1) {
-      for (let staIv = 0; staIv <= 15; staIv += 1) {
+  for (let atkIv = floor; atkIv <= 15; atkIv += 1) {
+    for (let defIv = floor; defIv <= 15; defIv += 1) {
+      for (let staIv = floor; staIv <= 15; staIv += 1) {
         let best: RankingRow | null = null;
 
         for (const level of levels) {
+          if (level > maxLevel + 1e-9) continue;
           const multiplier = byLevel.get(level.toFixed(1));
           if (multiplier === undefined) continue;
 
           const derived = computeDerivedStats(record, atkIv, defIv, staIv, multiplier);
-          if (derived.cp > cap) continue;
+          if (derived.cp > cap) break;
 
           if (
             best === null ||

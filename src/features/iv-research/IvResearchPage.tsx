@@ -1,13 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { LeagueIconButton, LeagueMark } from "../../components/LeagueIconButton";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
+import { buildEvolutionLine, buildSearchGroups, type EvolutionData, type LineMember } from "../../lib/pogo/evolutionLine";
+import { pokemonDexPlaceholderPath } from "../../lib/pogo/pokemonSprite";
 import {
   buildCpMultiplierMap,
   computeBestRankings,
   computeCp,
+  formatBattleStat,
   formatFormLabel,
+  formatPlace,
   formatScp,
+  IV_FLOORS,
+  strictUpgradeIvs,
   pickPreferredEntry,
+  placeTone,
   speciesDisplayName,
+  withBuddyLevels,
   type CpMultiplierRecord,
   type PogoStatRecord,
   type RankingRow,
@@ -17,12 +26,6 @@ import { recordPokemonPick, usePokemonPicks } from "../../lib/pogo/pokemonPicks"
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
 import { IvBars } from "../shared/IvBars";
 import { RankTable } from "./RankTable";
-
-type PreevoEntry = {
-  parentId: number;
-  parentName: string;
-  parentForm: string;
-};
 
 type TabId = "check" | "study";
 
@@ -45,7 +48,7 @@ type StudyLeagueId = (typeof STUDY_LEAGUES)[number]["id"];
 export function IvResearchPage() {
   const [stats, setStats] = useState<PogoStatRecord[] | null>(null);
   const [cpData, setCpData] = useState<ReturnType<typeof buildCpMultiplierMap> | null>(null);
-  const [preevo, setPreevo] = useState<Record<string, PreevoEntry>>({});
+  const [evolutions, setEvolutions] = useState<EvolutionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [tab, setTab] = useState<TabId>("check");
@@ -54,7 +57,11 @@ export function IvResearchPage() {
   const [atkIv, setAtkIv] = useState(15);
   const [defIv, setDefIv] = useState(15);
   const [staIv, setStaIv] = useState(15);
+  const [buddy, setBuddy] = useState(false);
+  const [checkFloor, setCheckFloor] = useState<(typeof IV_FLOORS)[number]>(0);
   const [studyLeague, setStudyLeague] = useState<StudyLeagueId>("great");
+  const [studyFloor, setStudyFloor] = useState(0);
+  const [studyRecalc, setStudyRecalc] = useState(false);
   const [customCap, setCustomCap] = useState(1500);
   const { recent } = usePokemonPicks();
 
@@ -63,19 +70,19 @@ export function IvResearchPage() {
     async function load() {
       setError(null);
       try {
-        const [statsRes, cpmRes, preRes] = await Promise.all([
+        const [statsRes, cpmRes, evoRes] = await Promise.all([
           fetch("/data/pokemon_stats.json"),
           fetch("/data/cp_multiplier.json"),
-          fetch("/data/pokemon_preevo.json"),
+          fetch("/data/pokemon_evolutions.json"),
         ]);
-        if (!statsRes.ok || !cpmRes.ok || !preRes.ok) throw new Error("data");
+        if (!statsRes.ok || !cpmRes.ok || !evoRes.ok) throw new Error("data");
         const nextStats = (await statsRes.json()) as PogoStatRecord[];
         const multipliers = (await cpmRes.json()) as CpMultiplierRecord[];
-        const nextPreevo = (await preRes.json()) as Record<string, PreevoEntry>;
+        const nextEvolutions = (await evoRes.json()) as EvolutionData;
         if (!cancelled) {
           setStats(nextStats);
           setCpData(buildCpMultiplierMap(multipliers));
-          setPreevo(nextPreevo);
+          setEvolutions(nextEvolutions);
         }
       } catch {
         if (!cancelled) setError("種族値データの読み込みに失敗しました。");
@@ -92,21 +99,39 @@ export function IvResearchPage() {
     return selected.entries.find((item) => item.form === form) ?? pickPreferredEntry(selected);
   }, [form, selected]);
 
+  const levelScale = useMemo(() => (cpData ? withBuddyLevels(cpData, buddy) : null), [buddy, cpData]);
+  const maxLevel = buddy ? 51 : 50;
+
+  const members = useMemo(() => {
+    if (!entry || !stats || !evolutions) return [];
+    return buildEvolutionLine(entry, stats, evolutions);
+  }, [entry, evolutions, stats]);
+
   const studyCap = studyLeague === "custom" ? customCap : STUDY_LEAGUES.find((league) => league.id === studyLeague)?.cap ?? 1500;
 
   const checkRanks = useMemo(() => {
-    if (!entry || !cpData || tab !== "check") return new Map<number, RankingRow[]>();
-    const map = new Map<number, RankingRow[]>();
-    for (const league of CHECK_LEAGUES) {
-      map.set(league.cap, computeBestRankings(entry, cpData.levels, cpData.byLevel, league.cap));
+    const map = new Map<string, RankingRow[]>();
+    if (!levelScale || tab !== "check") return map;
+    for (const member of members) {
+      for (const league of CHECK_LEAGUES) {
+        map.set(
+          `${member.key}:${league.cap}`,
+          computeBestRankings(member.record, levelScale.levels, levelScale.byLevel, league.cap, maxLevel, checkFloor),
+        );
+      }
     }
     return map;
-  }, [cpData, entry, tab]);
+  }, [checkFloor, levelScale, maxLevel, members, tab]);
+
+  const searchGroups = useMemo(
+    () => (stats && evolutions ? buildSearchGroups(stats, evolutions) : []),
+    [evolutions, stats],
+  );
 
   const studyRanks = useMemo(() => {
-    if (!entry || !cpData || tab !== "study") return [];
-    return computeBestRankings(entry, cpData.levels, cpData.byLevel, studyCap);
-  }, [cpData, entry, studyCap, tab]);
+    if (!entry || !levelScale || tab !== "study") return [];
+    return computeBestRankings(entry, levelScale.levels, levelScale.byLevel, studyCap, maxLevel, studyRecalc ? studyFloor : 0);
+  }, [entry, levelScale, maxLevel, studyCap, studyFloor, studyRecalc, tab]);
 
   const studyCurrent = useMemo(
     () => studyRanks.find((row) => row.atkIv === atkIv && row.defIv === defIv && row.staIv === staIv) ?? null,
@@ -118,18 +143,34 @@ export function IvResearchPage() {
     setForm(pickPreferredEntry(group).form);
   };
 
-  const chooseRecent = (pokemonId: number) => {
-    if (!stats) return;
-    const named = stats.find((item) => item.pokemon_id === pokemonId);
-    if (!named) return;
-    const entries = stats.filter((item) => item.pokemon_name === named.pokemon_name);
-    const group: SpeciesGroup = {
-      name: named.pokemon_name,
-      pokemonId: Math.min(...entries.map((item) => item.pokemon_id)),
-      entries,
-    };
+  const resolveRecent = (key: string) => {
+    const exact = searchGroups.find((group) => group.name === key);
+    if (exact) return exact;
+    if (!/^\d+$/.test(key)) return null;
+    return (
+      searchGroups.find((group) => group.name === `${key}:Normal`) ??
+      searchGroups.find((group) => group.pokemonId === Number(key) && !group.exactSprite) ??
+      null
+    );
+  };
+
+  const recentGroups = (() => {
+    const seen = new Set<string>();
+    const list: SpeciesGroup[] = [];
+    for (const key of recent) {
+      const group = resolveRecent(key);
+      if (!group || seen.has(group.name)) continue;
+      seen.add(group.name);
+      list.push(group);
+    }
+    return list;
+  })();
+
+  const chooseRecent = (key: string) => {
+    const group = resolveRecent(key);
+    if (!group) return;
     chooseGroup(group);
-    recordPokemonPick(group.pokemonId);
+    recordPokemonPick(group.pokemonId, group.name);
   };
 
   return (
@@ -155,13 +196,23 @@ export function IvResearchPage() {
       {stats ? (
         <>
           <section className="mon-pick" aria-label="ポケモン選択">
-            {recent.length > 0 ? (
+            {recentGroups.length > 0 ? (
               <div className="recent-row" aria-label="最近選んだポケモン">
-                {recent.map((pokemonId) => (
-                  <button key={pokemonId} type="button" className="recent-chip" onClick={() => chooseRecent(pokemonId)}>
-                    <PokemonDotSprite pokemonId={pokemonId} alt="" size={40} />
-                  </button>
-                ))}
+                {recentGroups.map((group) => {
+                  const label = speciesDisplayName(group);
+                  return (
+                    <button key={group.name} type="button" className="recent-chip" aria-label={label} onClick={() => chooseRecent(group.name)}>
+                      <PokemonDotSprite
+                        pokemonId={group.pokemonId}
+                        form={group.exactSprite ? undefined : group.entries[0]?.form}
+                        exact={group.exactSprite}
+                        spriteSuffix={group.spriteSuffix}
+                        alt={label}
+                        size={40}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             ) : null}
             <div className="mon-pick-main">
@@ -170,9 +221,16 @@ export function IvResearchPage() {
               </button>
               <button type="button" className="mon-pick-sprite" aria-label="ポケモン選択" onClick={() => openPokemonSearch(chooseGroup)}>
                 {selected ? (
-                  <PokemonDotSprite pokemonId={selected.pokemonId} alt="" size={64} />
+                  <PokemonDotSprite
+                    pokemonId={selected.pokemonId}
+                    form={selected.exactSprite ? undefined : entry?.form}
+                    exact={selected.exactSprite}
+                    spriteSuffix={selected.spriteSuffix}
+                    alt=""
+                    size={64}
+                  />
                 ) : (
-                  <img className="pokemon-dot-sprite" src="/Image/placeholder.svg" alt="" width={64} height={64} />
+                  <img className="pokemon-dot-sprite" src={pokemonDexPlaceholderPath()} alt="" width={64} height={64} />
                 )}
               </button>
             </div>
@@ -193,6 +251,19 @@ export function IvResearchPage() {
             ) : null}
           </section>
 
+          <IvBars
+            atk={atkIv}
+            def={defIv}
+            sta={staIv}
+            buddy={buddy}
+            onBuddy={setBuddy}
+            onChange={(next) => {
+              setAtkIv(next.atk);
+              setDefIv(next.def);
+              setStaIv(next.sta);
+            }}
+          />
+
           <div className="iv-tabbar" role="tablist" aria-label="個体値研究">
             <button type="button" role="tab" aria-selected={tab === "check"} className={tab === "check" ? "is-active" : ""} onClick={() => setTab("check")}>
               個体チェック
@@ -204,32 +275,84 @@ export function IvResearchPage() {
 
           {tab === "check" ? (
             <div className="iv-tab-panel" role="tabpanel">
-              <IvBars atk={atkIv} def={defIv} sta={staIv} onChange={(next) => { setAtkIv(next.atk); setDefIv(next.def); setStaIv(next.sta); }} />
-              {entry && cpData ? (
-                <div className="check-board">
-                  <div className="check-sprite">
-                    <PokemonDotSprite pokemonId={entry.pokemon_id} alt="" size={64} />
+              {entry && levelScale && evolutions && members.length > 0 ? (
+                <div className="check-scroll">
+                  <div className="check-board">
+                    <div className="check-head">
+                      <div />
+                      {CHECK_LEAGUES.map((league) => (
+                        <div key={league.id} className="check-league-head">
+                          <LeagueMark id={league.id} label={league.label} />
+                        </div>
+                      ))}
+                    </div>
+                    {members.map((member) => (
+                      <div key={member.key} className="check-row">
+                        <div className="check-sprite">
+                          <PokemonDotSprite
+                            pokemonId={member.record.pokemon_id}
+                            form={member.exactSprite ? undefined : member.record.form}
+                            exact={member.exactSprite}
+                            spriteSuffix={member.spriteSuffix}
+                            alt={member.label}
+                            size={48}
+                          />
+                          <p className="check-name">{member.label}</p>
+                        </div>
+                        {CHECK_LEAGUES.map((league) => {
+                          const ranks = checkRanks.get(`${member.key}:${league.cap}`);
+                          const row = ranks?.find((item) => item.atkIv === atkIv && item.defIv === defIv && item.staIv === staIv);
+                          const before = row ? previousCp(member, row, stats, evolutions, levelScale.byLevel) : null;
+                          const upgrades = row && ranks ? strictUpgradeIvs(row, ranks) : [];
+                          const belowFloor = atkIv < checkFloor || defIv < checkFloor || staIv < checkFloor;
+                          return (
+                            <div key={league.id} className="check-cell">
+                              {belowFloor ? (
+                                <p className="check-fine">最低未満</p>
+                              ) : row ? (
+                                <>
+                                  <p className={`check-rank place num ${placeTone(row.rank)}`}>{formatPlace(row.rank)}</p>
+                                  <p className="check-mid num">
+                                    <span>
+                                      CP {row.cp}
+                                      {upgrades.length > 0 ? (
+                                        <>
+                                          {" "}
+                                          <DominateMark ivs={upgrades} />
+                                        </>
+                                      ) : null}
+                                    </span>
+                                    <span>SCP {formatScp(row.statProduct)}</span>
+                                  </p>
+                                  <p className="check-fine num">攻撃 {formatBattleStat(row.attack, 2)}</p>
+                                  <p className="check-fine num">Lv{row.level.toFixed(1)}</p>
+                                  {before !== null ? <p className="check-fine num">前CP {before}</p> : null}
+                                </>
+                              ) : (
+                                <p className="check-fine">入らない</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
-                  {CHECK_LEAGUES.map((league) => {
-                    const row = checkRanks.get(league.cap)?.find((item) => item.atkIv === atkIv && item.defIv === defIv && item.staIv === staIv);
-                    const before = row ? previousCp(entry, row, stats, preevo, cpData) : null;
-                    return (
-                      <article key={league.id} className="check-league">
-                        <h2>{league.label}</h2>
-                        {row ? (
-                          <div className="check-stats">
-                            <p className="check-rank num">#{row.rank}</p>
-                            <p className="num">CP {row.cp} <span>Lv{row.level.toFixed(1)}</span></p>
-                            <p className="num">SCP {formatScp(row.statProduct)}</p>
-                            <p className="num">攻撃 {row.attack.toFixed(1)}</p>
-                            {before !== null ? <p className="num">前CP {before}</p> : null}
-                          </div>
-                        ) : (
-                          <p className="note">このCP帯には入りません。</p>
-                        )}
-                      </article>
-                    );
-                  })}
+                  <p className="check-dominate-note">上位互換個体がいる場合はCPの横に「↓」が出ます。矢印を押すと個体値が出ます</p>
+                  <label className="field check-floor">
+                    <span className="field-label">個体値最低</span>
+                    <select
+                      className="input"
+                      value={checkFloor}
+                      onChange={(event) => setCheckFloor(Number(event.target.value) as (typeof IV_FLOORS)[number])}
+                    >
+                      {IV_FLOORS.map((floor) => (
+                        <option key={floor} value={floor}>
+                          {floor}以上
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="check-floor-note">最低保証に基づいた順位を再計算します</p>
                 </div>
               ) : (
                 <p className="note">ポケモンを選ぶと、リーグごとの順位が出ます。</p>
@@ -237,18 +360,15 @@ export function IvResearchPage() {
             </div>
           ) : (
             <div className="iv-tab-panel" role="tabpanel">
-              <IvBars atk={atkIv} def={defIv} sta={staIv} onChange={(next) => { setAtkIv(next.atk); setDefIv(next.def); setStaIv(next.sta); }} />
-              <div className="choice-row league-row" role="group" aria-label="リーグ">
+              <div className="choice-row league-row is-five" role="group" aria-label="リーグ">
                 {STUDY_LEAGUES.map((league) => (
-                  <button
+                  <LeagueIconButton
                     key={league.id}
-                    type="button"
-                    className="choice"
-                    aria-pressed={studyLeague === league.id}
+                    id={league.id}
+                    label={league.label}
+                    pressed={studyLeague === league.id}
                     onClick={() => setStudyLeague(league.id)}
-                  >
-                    {league.label}
-                  </button>
+                  />
                 ))}
               </div>
               {studyLeague === "custom" ? (
@@ -268,40 +388,38 @@ export function IvResearchPage() {
                   />
                 </label>
               ) : null}
-              {entry && studyCurrent ? (
+              {entry && (studyCurrent || studyRanks.length > 0) ? (
                 <div className="study-layout">
-                  <section className="analysis-card" aria-label="個体分析">
-                    <div className="analysis-row">
+                  {studyCurrent ? (
+                    <section className="study-summary" aria-label="個体分析">
                       <div>
-                        <span>順位</span>
-                        <strong className="num">#{studyCurrent.rank}</strong>
+                        <p className="study-kicker">順位</p>
+                        <p className={`check-rank place num ${placeTone(studyCurrent.rank)}`}>{formatPlace(studyCurrent.rank)}</p>
                       </div>
-                      <div>
-                        <span>CP</span>
-                        <strong className="num">{studyCurrent.cp}</strong>
-                        <small className="num">Lv{studyCurrent.level.toFixed(1)}</small>
+                      <div className="study-side">
+                        <p className="check-mid num">CP {studyCurrent.cp}</p>
+                        <p className="check-mid num">SCP {formatScp(studyCurrent.statProduct)}</p>
                       </div>
-                      <div>
-                        <span>SCP</span>
-                        <strong className="num">{formatScp(studyCurrent.statProduct)}</strong>
+                      <div className="study-side check-fine num">
+                        <p>攻撃 {studyCurrent.attack.toFixed(1)}</p>
+                        <p>防御 {studyCurrent.defense.toFixed(1)}</p>
+                        <p>HP {studyCurrent.stamina}</p>
+                        <p>レベル {studyCurrent.level.toFixed(1)}</p>
                       </div>
-                    </div>
-                    <div className="analysis-row">
-                      <div>
-                        <span>攻撃</span>
-                        <strong className="num">{studyCurrent.attack.toFixed(1)}</strong>
-                      </div>
-                      <div>
-                        <span>防御</span>
-                        <strong className="num">{studyCurrent.defense.toFixed(1)}</strong>
-                      </div>
-                      <div>
-                        <span>HP</span>
-                        <strong className="num">{studyCurrent.stamina}</strong>
-                      </div>
-                    </div>
-                  </section>
-                  <RankTable rows={studyRanks} current={studyCurrent} />
+                    </section>
+                  ) : (
+                    <p className="note">この個体は個体値最低を下回っています。</p>
+                  )}
+                  <RankTable
+                    rows={studyRanks}
+                    current={studyCurrent}
+                    floor={studyFloor as (typeof IV_FLOORS)[number]}
+                    recalc={studyRecalc}
+                    onIvFloor={(floor, recalc) => {
+                      setStudyFloor(floor);
+                      setStudyRecalc(recalc);
+                    }}
+                  />
                 </div>
               ) : (
                 <p className="note">{entry ? "このCP帯には入りません。" : "ポケモンを選ぶと、このリーグの順位と上位表が出ます。"}</p>
@@ -314,20 +432,111 @@ export function IvResearchPage() {
   );
 }
 
+const dominateWatchers = new Set<(id: number) => void>();
+let dominateSeq = 0;
+
+function DominateMark({ ivs }: { ivs: string[] }) {
+  const [id] = useState(() => {
+    dominateSeq += 1;
+    return dominateSeq;
+  });
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ top: number; left: number; above: boolean } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const watch = (opened: number) => {
+      if (opened !== id) setOpen(false);
+    };
+    dominateWatchers.add(watch);
+    return () => {
+      dominateWatchers.delete(watch);
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const half = 52;
+      const left = Math.min(window.innerWidth - 8 - half, Math.max(8 + half, rect.left + rect.width / 2));
+      const above = rect.bottom + 48 > window.innerHeight;
+      setBox({ top: above ? rect.top - 4 : rect.bottom + 4, left, above });
+    };
+    place();
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (buttonRef.current?.contains(target)) return;
+      if (document.getElementById(`dominate-pop-${id}`)?.contains(target)) return;
+      setOpen(false);
+    };
+    window.addEventListener("pointerdown", onPointer);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [id, open]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="cp-dominate"
+        aria-expanded={open}
+        aria-label="上位互換の個体値"
+        onClick={() => {
+          setOpen((value) => {
+            const next = !value;
+            if (next) dominateWatchers.forEach((watch) => watch(id));
+            return next;
+          });
+        }}
+      >
+        ↓
+      </button>
+      {open && box ? (
+        <div
+          id={`dominate-pop-${id}`}
+          className="dominate-pop"
+          role="dialog"
+          aria-label="上位互換の個体値"
+          style={{ top: box.top, left: box.left, transform: box.above ? "translate(-50%, -100%)" : "translateX(-50%)" }}
+        >
+          <p>上位</p>
+          <ul>
+            {ivs.map((iv) => (
+              <li key={iv}>{iv}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function previousCp(
-  entry: PogoStatRecord,
+  member: LineMember,
   row: RankingRow,
   stats: PogoStatRecord[],
-  preevo: Record<string, PreevoEntry>,
-  cpData: NonNullable<ReturnType<typeof buildCpMultiplierMap>>,
+  evolutions: EvolutionData,
+  byLevel: Map<string, number>,
 ) {
-  const parent = preevo[`${entry.pokemon_id}:${entry.form}`] ?? preevo[`${entry.pokemon_id}:Normal`];
+  const multiplier = byLevel.get(row.level.toFixed(1));
+  if (multiplier === undefined) return null;
+  if (member.megaBase) {
+    return computeCp(member.megaBase, row.atkIv, row.defIv, row.staIv, multiplier);
+  }
+  const parent = evolutions.parents[`${member.record.pokemon_id}:${member.record.form}`];
   if (!parent) return null;
   const record =
-    stats.find((item) => item.pokemon_id === parent.parentId && item.form === parent.parentForm) ??
-    stats.find((item) => item.pokemon_id === parent.parentId);
+    stats.find((item) => item.pokemon_id === parent.pokemonId && item.form === parent.form) ??
+    stats.find((item) => item.pokemon_id === parent.pokemonId);
   if (!record) return null;
-  const multiplier = cpData.byLevel.get(row.level.toFixed(1));
-  if (multiplier === undefined) return null;
   return computeCp(record, row.atkIv, row.defIv, row.staIv, multiplier);
 }
