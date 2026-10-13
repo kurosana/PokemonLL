@@ -2349,29 +2349,68 @@ select.input {
   border-top: 3px solid var(--bad);
 }
 
+.sim-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-height: 2.15rem;
+}
+
 .sim-role {
   margin: 0;
+  padding-top: 0.12rem;
   color: var(--text-faint);
   font-size: 0.75rem;
   font-weight: 700;
 }
 
-.sim-cp-line {
+.sim-shadow-toggle {
+  min-width: 2.65rem;
+  min-height: 2.15rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent-deep);
+}
+
+.sim-power-line {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.sim-power-item {
   display: grid;
   gap: 0.1rem;
   margin: 0;
 }
 
-.sim-cp-line > span:first-child {
+.sim-power-item > span {
   color: var(--text-faint);
   font-size: 0.72rem;
   font-weight: 700;
 }
 
-.sim-cp {
+.sim-cp,
+.sim-scp {
   color: var(--accent-deep);
   font-size: 1.7rem;
   line-height: 1;
+}
+
+.sim-battle-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0;
+  text-align: center;
+  color: #1a2733;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .sim-ivs {
@@ -2598,8 +2637,13 @@ select.input {
     padding: 0.3rem 0.45rem;
   }
 
-  .sim-cp {
+  .sim-cp,
+  .sim-scp {
     font-size: 1.35rem;
+  }
+
+  .sim-battle-stats {
+    font-size: 0.76rem;
   }
 }
 
