@@ -490,6 +490,7 @@ type SheetCell = {
   damage: number;
   shielded: boolean;
   endsCharge: boolean;
+  cct: boolean;
 };
 
 type TurnRow = { turn: number; hpA: number; hpB: number; a: TimelineEvent | null; b: TimelineEvent | null };
@@ -551,6 +552,7 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
         damage: 0,
         shielded: false,
         endsCharge: chargeTurns.has(turns[index].turn),
+        cct: false,
       });
       index += 1;
       continue;
@@ -577,6 +579,7 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
       damage: landing?.damage ?? 0,
       shielded: landing?.shielded ?? false,
       endsCharge,
+      cct: event.kind === "fast" && event.cct,
     });
     for (let cursor = index + 1; cursor < end; cursor += 1) {
       cells.set(turns[cursor].turn, {
@@ -587,6 +590,7 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
         damage: 0,
         shielded: false,
         endsCharge: false,
+        cct: false,
       });
     }
     index = end;
@@ -641,6 +645,7 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
           <span className="move-line">
             {cell.name ? <span>{cell.name}</span> : null}
             {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
+            {cell.cct ? <span className="cct-mark">CCT</span> : null}
           </span>
           <span className="move-guard">防</span>
         </span>
@@ -648,6 +653,7 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
         <span className="move-label">
           {cell.name ? <span>{cell.name}</span> : null}
           {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
+          {cell.cct ? <span className="cct-mark">CCT</span> : null}
         </span>
       )}
     </td>

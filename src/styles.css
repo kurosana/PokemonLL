@@ -1082,6 +1082,22 @@ select.input {
   white-space: nowrap;
 }
 
+.battle-sheet .cct-mark {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  height: 0.78rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: var(--accent-deep);
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
 .battle-sheet .move-dmg {
   color: #6a463c;
   font-size: 0.66rem;
