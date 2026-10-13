@@ -8,6 +8,7 @@ import { findPvpPokemon, resolveMoves } from "../../lib/pogo/pvpBundle";
 import {
   computeBestRankings,
   findMaxLevelBuild,
+  formatBattleStat,
   leagueCap,
   leagueConfigs,
   speciesDisplayName,
@@ -155,28 +156,32 @@ export function SimResearchPage() {
 
           {result && fighterA && fighterB ? (
             <>
-              <section className="panel result-panel sim-result">
-                <h2 className="panel-title">この対面</h2>
+              <section className="panel result-panel sim-result" aria-label="この対面">
                 <div className="sim-matchup">
                   <MatchupSide
                     word={result.winner === "draw" ? null : result.winner === "a" ? "WIN" : "LOSE"}
                     side={sideA}
                     hp={result.hpA}
                     max={result.maxHpA}
+                    attack={fighterA.build.attack}
+                    defense={fighterA.build.defense}
+                    stamina={fighterA.build.stamina}
                   />
                   <MatchupSide
                     word={result.winner === "draw" ? null : result.winner === "b" ? "WIN" : "LOSE"}
                     side={sideB}
                     hp={result.hpB}
                     max={result.maxHpB}
+                    attack={fighterB.build.attack}
+                    defense={fighterB.build.defense}
+                    stamina={fighterB.build.stamina}
                   />
                 </div>
                 <p className="note">{result.turns}ターン</p>
               </section>
 
               {grid && sideA.record && sideB.record ? (
-                <section className="panel shield-panel">
-                  <h2 className="panel-title">シールド9マス</h2>
+                <section className="panel shield-panel" aria-label="シールド9マス">
                   <div className="shield-grid" role="grid" aria-label="シールド評価">
                     <span className="shield-corner">
                       <PokemonDotSprite
@@ -536,6 +541,21 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
       continue;
     }
 
+    const startedEarlier = index > 0 && turns[index - 1][actor]?.actionId === event.actionId;
+    if (startedEarlier && receivedShield(turns[index], actor) && event.kind === "fast") {
+      cells.set(turns[index].turn, {
+        show: true,
+        span: 1,
+        name: "",
+        type: "",
+        damage: 0,
+        shielded: false,
+        endsCharge: chargeTurns.has(turns[index].turn),
+      });
+      index += 1;
+      continue;
+    }
+
     let end = index;
     while (end < turns.length && turns[end][actor]?.actionId === event.actionId) {
       if (end > index && receivedShield(turns[end], actor)) break;
@@ -545,7 +565,9 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
     }
 
     const slice = turns.slice(index, end);
-    const landing = [...slice].reverse().find((row) => (row[actor]?.damage ?? 0) > 0)?.[actor];
+    let landing = [...slice].reverse().find((row) => (row[actor]?.damage ?? 0) > 0)?.[actor];
+    const following = turns[end]?.[actor];
+    if (!landing && following?.actionId === event.actionId && (following.damage ?? 0) > 0) landing = following;
     const endsCharge = chargeTurns.has(turns[end - 1].turn);
     cells.set(turns[index].turn, {
       show: true,
@@ -602,18 +624,32 @@ function BattleSheet({ events }: { events: TimelineEvent[] }) {
 }
 
 function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
-  if (!cell) {
-    if (guard) return <td className="move is-guard">防</td>;
+  if (cell && !cell.show) return null;
+  if (!cell?.name) {
+    if (guard) return <td className={`move is-guard${cell?.endsCharge ? " ends-charge" : ""}`}>防</td>;
     return <td className="move is-empty" />;
   }
-  if (!cell.show) return null;
+  const stacked = guard;
   return (
-    <td className={`move${cell.endsCharge ? " ends-charge" : ""}`} rowSpan={cell.span} style={cell.name ? { background: typeWash(cell.type) } : undefined}>
-      <span className="move-label">
-        {cell.name ? <span>{cell.name}</span> : null}
-        {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
-        {guard ? <span className="move-guard">防</span> : null}
-      </span>
+    <td
+      className={`move${cell.endsCharge ? " ends-charge" : ""}${stacked ? " is-stacked" : ""}`}
+      rowSpan={cell.span}
+      style={cell.name ? { background: typeWash(cell.type) } : undefined}
+    >
+      {stacked ? (
+        <span className="move-label is-stacked">
+          <span className="move-line">
+            {cell.name ? <span>{cell.name}</span> : null}
+            {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
+          </span>
+          <span className="move-guard">防</span>
+        </span>
+      ) : (
+        <span className="move-label">
+          {cell.name ? <span>{cell.name}</span> : null}
+          {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
+        </span>
+      )}
     </td>
   );
 }
@@ -623,28 +659,52 @@ function MatchupSide({
   side,
   hp,
   max,
+  attack,
+  defense,
+  stamina,
 }: {
   word: "WIN" | "LOSE" | null;
   side: SideState;
   hp: number;
   max: number;
+  attack: number;
+  defense: number;
+  stamina: number;
 }) {
   const ratio = max > 0 ? hp / max : 0;
   const band = ratio <= 0.2 ? "low" : ratio <= 0.5 ? "mid" : "high";
   return (
     <div className="sim-matchup-side">
       <p className={word === "WIN" ? "sim-win" : word === "LOSE" ? "sim-lose" : "sim-draw"}>{word ?? "相打ち"}</p>
-      {side.record ? (
-        <PokemonDotSprite
-          pokemonId={side.record.pokemon_id}
-          form={side.exactSprite ? undefined : side.record.form}
-          exact={side.exactSprite}
-          spriteSuffix={side.spriteSuffix}
-          alt=""
-          size={72}
-        />
-      ) : null}
-      <p className="sim-hp-now num">{hp}</p>
+      <div className="sim-mon-block">
+        {side.record ? (
+          <PokemonDotSprite
+            pokemonId={side.record.pokemon_id}
+            form={side.exactSprite ? undefined : side.record.form}
+            exact={side.exactSprite}
+            spriteSuffix={side.spriteSuffix}
+            alt=""
+            size={68}
+          />
+        ) : null}
+        <dl className="sim-real-stats">
+          <div>
+            <dt>攻撃：</dt>
+            <dd className="num">{formatBattleStat(attack, 2)}</dd>
+          </div>
+          <div>
+            <dt>防御：</dt>
+            <dd className="num">{formatBattleStat(defense, 2)}</dd>
+          </div>
+          <div>
+            <dt>HP：</dt>
+            <dd className="num">{stamina}</dd>
+          </div>
+        </dl>
+      </div>
+      <p className="sim-hp-now num">
+        {hp} / {max}
+      </p>
       <div className={`hp-track is-${band}`}>
         <i style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
       </div>
@@ -656,10 +716,10 @@ function shieldFill(rating: number) {
   if (rating === 100) return "linear-gradient(180deg, #f7f8fa 0%, #e6ebf0 100%)";
   if (rating > 100) {
     const t = Math.min(1, (rating - 100) / 50);
-    return `linear-gradient(180deg, ${mixRgb([255, 214, 214], [255, 118, 124], t)} 0%, ${mixRgb([244, 176, 176], [196, 24, 46], t)} 100%)`;
+    return `linear-gradient(180deg, ${mixRgb([255, 232, 232], [248, 168, 168], t)} 0%, ${mixRgb([246, 208, 208], [228, 112, 112], t)} 100%)`;
   }
   const t = Math.min(1, (100 - rating) / 50);
-  return `linear-gradient(180deg, ${mixRgb([228, 232, 250], [150, 142, 228], t)} 0%, ${mixRgb([206, 214, 244], [68, 54, 176], t)} 100%)`;
+  return `linear-gradient(180deg, ${mixRgb([242, 245, 255], [206, 210, 244], t)} 0%, ${mixRgb([224, 228, 246], [148, 156, 224], t)} 100%)`;
 }
 
 function mixRgb(from: [number, number, number], to: [number, number, number], t: number) {
