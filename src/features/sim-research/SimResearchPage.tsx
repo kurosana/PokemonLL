@@ -157,41 +157,71 @@ export function SimResearchPage() {
             <>
               <section className="panel result-panel sim-result">
                 <h2 className="panel-title">この対面</h2>
-                <div className="hero-stats">
-                  <div>
-                    <span>結果</span>
-                    <strong className={`sim-outcome ${result.winner === "a" ? "win-text" : result.winner === "b" ? "lose-text" : ""}`}>
-                      {result.winner === "a" ? "勝ち" : result.winner === "b" ? "負け" : "相打ち"}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>評価</span>
-                    <strong className="hero-cp num">{result.rating}</strong>
-                  </div>
+                <div className="sim-matchup">
+                  <MatchupSide
+                    word={result.winner === "draw" ? null : result.winner === "a" ? "WIN" : "LOSE"}
+                    side={sideA}
+                    hp={result.hpA}
+                    max={result.maxHpA}
+                  />
+                  <MatchupSide
+                    word={result.winner === "draw" ? null : result.winner === "b" ? "WIN" : "LOSE"}
+                    side={sideB}
+                    hp={result.hpB}
+                    max={result.maxHpB}
+                  />
                 </div>
-                <div className="sim-hp-row">
-                  <HpBar name={fighterA.name} hp={result.hpA} max={result.maxHpA} tone="self" />
-                  <HpBar name={fighterB.name} hp={result.hpB} max={result.maxHpB} tone="foe" />
-                </div>
-                <p className="note">
-                  {result.turns}ターン。評価が100より大きいと勝ちです。
-                </p>
+                <p className="note">{result.turns}ターン</p>
               </section>
 
-              {grid ? (
-                <section className="panel">
+              {grid && sideA.record && sideB.record ? (
+                <section className="panel shield-panel">
                   <h2 className="panel-title">シールド9マス</h2>
-                  <p className="note">マスを押すと、その枚数の結果に切り替わります。自分の枚数が縦、相手が横です。</p>
-                  <div className="shield-grid" role="grid" aria-label="シールド勝敗表">
-                    <span className="shield-corner">自分＼相手</span>
+                  <div className="shield-grid" role="grid" aria-label="シールド評価">
+                    <span className="shield-corner">
+                      <PokemonDotSprite
+                        className="corner-self"
+                        pokemonId={sideA.record.pokemon_id}
+                        form={sideA.exactSprite ? undefined : sideA.record.form}
+                        exact={sideA.exactSprite}
+                        spriteSuffix={sideA.spriteSuffix}
+                        alt=""
+                        size={22}
+                      />
+                      <PokemonDotSprite
+                        className="corner-foe"
+                        pokemonId={sideB.record.pokemon_id}
+                        form={sideB.exactSprite ? undefined : sideB.record.form}
+                        exact={sideB.exactSprite}
+                        spriteSuffix={sideB.spriteSuffix}
+                        alt=""
+                        size={22}
+                      />
+                    </span>
                     {[0, 1, 2].map((shieldsB) => (
                       <span key={`h-${shieldsB}`} className="shield-head">
-                        {shieldsB}
+                        <PokemonDotSprite
+                          pokemonId={sideB.record!.pokemon_id}
+                          form={sideB.exactSprite ? undefined : sideB.record!.form}
+                          exact={sideB.exactSprite}
+                          spriteSuffix={sideB.spriteSuffix}
+                          alt=""
+                          size={22}
+                        />
+                        <span>×{shieldsB}</span>
                       </span>
                     ))}
                     {grid.flatMap((row, shieldsA) => [
                       <span key={`l-${shieldsA}`} className="shield-head">
-                        {shieldsA}
+                        <PokemonDotSprite
+                          pokemonId={sideA.record!.pokemon_id}
+                          form={sideA.exactSprite ? undefined : sideA.record!.form}
+                          exact={sideA.exactSprite}
+                          spriteSuffix={sideA.spriteSuffix}
+                          alt=""
+                          size={22}
+                        />
+                        <span>×{shieldsA}</span>
                       </span>,
                       ...row.map((cell, shieldsB) => {
                         const selected = sideA.shields === shieldsA && sideB.shields === shieldsB;
@@ -201,18 +231,21 @@ export function SimResearchPage() {
                             key={`${shieldsA}-${shieldsB}`}
                             type="button"
                             className={`shield-cell is-${tone}${selected ? " is-selected" : ""}`}
+                            style={{ background: shieldFill(cell.rating) }}
+                            aria-pressed={selected}
+                            aria-label={`自分${shieldsA} 相手${shieldsB} ${cell.rating}`}
                             onClick={() => {
                               setSideA((current) => ({ ...current, shields: shieldsA }));
                               setSideB((current) => ({ ...current, shields: shieldsB }));
                             }}
                           >
                             <strong className="num">{cell.rating}</strong>
-                            <span>{cell.winner === "a" ? "勝" : cell.winner === "b" ? "負" : "引"}</span>
                           </button>
                         );
                       }),
                     ])}
                   </div>
+                  <p className="note">マスを押すと、その枚数の結果に切り替わります。自分の枚数が縦、相手が横です。</p>
                 </section>
               ) : null}
 
@@ -480,9 +513,16 @@ function buildSheet(events: TimelineEvent[]) {
     hpA: row.hpA,
     hpB: row.hpB,
     charge: chargeTurns.has(row.turn),
+    guardA: receivedShield(row, "a"),
+    guardB: receivedShield(row, "b"),
     a: cellsA.get(row.turn) ?? null,
     b: cellsB.get(row.turn) ?? null,
   }));
+}
+
+function receivedShield(row: TurnRow, actor: "a" | "b") {
+  const other = actor === "a" ? row.b : row.a;
+  return Boolean(other?.kind === "charged" && other.shielded);
 }
 
 function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<number>) {
@@ -498,6 +538,7 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
 
     let end = index;
     while (end < turns.length && turns[end][actor]?.actionId === event.actionId) {
+      if (end > index && receivedShield(turns[end], actor)) break;
       const splitAfter = chargeTurns.has(turns[end].turn);
       end += 1;
       if (splitAfter) break;
@@ -543,31 +584,87 @@ function BattleSheet({ events }: { events: TimelineEvent[] }) {
         <col className="col-hp" />
       </colgroup>
       <tbody>
-        {rows.map((row) => (
-          <tr key={row.turn} className={row.charge ? "has-charge" : undefined}>
-            <td className="hp num">{row.hpA}</td>
-            <MoveCell cell={row.a} />
-            <td className="turn num">{row.turn}</td>
-            <MoveCell cell={row.b} />
-            <td className="hp num">{row.hpB}</td>
-          </tr>
-        ))}
+        {rows.map((row, index) => {
+          const prev = rows[index - 1];
+          return (
+            <tr key={row.turn} className={row.charge ? "has-charge" : undefined}>
+              <td className="hp num">{!prev || prev.hpA !== row.hpA ? row.hpA : ""}</td>
+              <MoveCell cell={row.a} guard={row.guardA} />
+              <td className="turn num">{row.turn}</td>
+              <MoveCell cell={row.b} guard={row.guardB} />
+              <td className="hp num">{!prev || prev.hpB !== row.hpB ? row.hpB : ""}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
 }
 
-function MoveCell({ cell }: { cell: SheetCell | null }) {
-  if (!cell) return <td className="move is-empty" />;
+function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
+  if (!cell) {
+    if (guard) return <td className="move is-guard">防</td>;
+    return <td className="move is-empty" />;
+  }
   if (!cell.show) return null;
   return (
-    <td className={`move${cell.endsCharge ? " ends-charge" : ""}`} rowSpan={cell.span} style={{ background: typeWash(cell.type) }}>
+    <td className={`move${cell.endsCharge ? " ends-charge" : ""}`} rowSpan={cell.span} style={cell.name ? { background: typeWash(cell.type) } : undefined}>
       <span className="move-label">
-        <span>{cell.name}</span>
-        {cell.damage > 0 ? <span className="num move-dmg">{cell.shielded ? `${cell.damage}防` : cell.damage}</span> : null}
+        {cell.name ? <span>{cell.name}</span> : null}
+        {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
+        {guard ? <span className="move-guard">防</span> : null}
       </span>
     </td>
   );
+}
+
+function MatchupSide({
+  word,
+  side,
+  hp,
+  max,
+}: {
+  word: "WIN" | "LOSE" | null;
+  side: SideState;
+  hp: number;
+  max: number;
+}) {
+  const ratio = max > 0 ? hp / max : 0;
+  const band = ratio <= 0.2 ? "low" : ratio <= 0.5 ? "mid" : "high";
+  return (
+    <div className="sim-matchup-side">
+      <p className={word === "WIN" ? "sim-win" : word === "LOSE" ? "sim-lose" : "sim-draw"}>{word ?? "相打ち"}</p>
+      {side.record ? (
+        <PokemonDotSprite
+          pokemonId={side.record.pokemon_id}
+          form={side.exactSprite ? undefined : side.record.form}
+          exact={side.exactSprite}
+          spriteSuffix={side.spriteSuffix}
+          alt=""
+          size={72}
+        />
+      ) : null}
+      <p className="sim-hp-now num">{hp}</p>
+      <div className={`hp-track is-${band}`}>
+        <i style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function shieldFill(rating: number) {
+  if (rating === 100) return "linear-gradient(180deg, #f7f8fa 0%, #e6ebf0 100%)";
+  if (rating > 100) {
+    const t = Math.min(1, (rating - 100) / 50);
+    return `linear-gradient(180deg, ${mixRgb([255, 214, 214], [255, 118, 124], t)} 0%, ${mixRgb([244, 176, 176], [196, 24, 46], t)} 100%)`;
+  }
+  const t = Math.min(1, (100 - rating) / 50);
+  return `linear-gradient(180deg, ${mixRgb([228, 232, 250], [150, 142, 228], t)} 0%, ${mixRgb([206, 214, 244], [68, 54, 176], t)} 100%)`;
+}
+
+function mixRgb(from: [number, number, number], to: [number, number, number], t: number) {
+  const channel = (start: number, end: number) => Math.round(start + (end - start) * t);
+  return `rgb(${channel(from[0], to[0])}, ${channel(from[1], to[1])}, ${channel(from[2], to[2])})`;
 }
 
 const TYPE_PASTEL: Record<string, string> = {
@@ -596,24 +693,7 @@ function typePastel(type: string) {
 }
 
 function typeWash(type: string) {
-  return `color-mix(in srgb, ${typePastel(type)} 41%, white)`;
-}
-
-function HpBar({ name, hp, max, tone }: { name: string; hp: number; max: number; tone: "self" | "foe" }) {
-  const pct = max > 0 ? Math.max(0, Math.min(100, (hp / max) * 100)) : 0;
-  return (
-    <div className={`hp-bar is-${tone}`}>
-      <div className="hp-bar-meta">
-        <span>{name}</span>
-        <strong className="num">
-          {hp} / {max}
-        </strong>
-      </div>
-      <div className="hp-track">
-        <i style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
+  return `color-mix(in srgb, ${typePastel(type)} 51%, white)`;
 }
 
 function IvBox({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
