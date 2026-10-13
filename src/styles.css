@@ -928,6 +928,45 @@ select.input {
   background: linear-gradient(90deg, #c41818, #f08a84);
 }
 
+.hp-track-hit {
+  display: flex;
+  width: 100%;
+}
+
+.hp-track-hit .hp-hit-remain {
+  display: block;
+  height: 100%;
+  flex: 0 0 auto;
+  min-width: 0;
+  border-radius: 999px 0 0 999px;
+  background: linear-gradient(90deg, #14956f, #7fe0c8);
+}
+
+.hp-track-hit .hp-hit-remain.is-mid {
+  background: linear-gradient(90deg, #d4920e, #f6d56a);
+}
+
+.hp-track-hit .hp-hit-remain.is-low {
+  background: linear-gradient(90deg, #c41818, #f08a84);
+}
+
+.hp-track-hit .hp-hit-remain.is-full {
+  border-radius: 999px;
+}
+
+.hp-track-hit .hp-hit-lost {
+  display: block;
+  height: 100%;
+  flex: 0 0 auto;
+  min-width: 0;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(90deg, #f59a28, #ff8a1f);
+}
+
+.hp-track-hit .hp-hit-lost.is-full {
+  border-radius: 999px;
+}
+
 .win-text { color: var(--good); }
 .lose-text { color: var(--bad); }
 
@@ -2480,6 +2519,49 @@ select.input {
 
 .sim-matchup .hp-track {
   width: 100%;
+}
+
+.sim-hit-list {
+  width: 100%;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sim-hit-row {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.sim-hit-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.sim-hit-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #31404c;
+  font-weight: 700;
+}
+
+.sim-hit-val {
+  flex: 0 0 auto;
+  color: #1a2733;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.sim-matchup-side .hp-track-hit {
+  height: 8px;
 }
 
 @media (max-width: 640px) {
