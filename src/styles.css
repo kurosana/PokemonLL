@@ -1365,7 +1365,7 @@ select.input {
   display: flex;
   gap: 3px;
   min-height: 2rem;
-  touch-action: none;
+  touch-action: pan-y;
   user-select: none;
 }
 
@@ -1378,6 +1378,7 @@ select.input {
   border-radius: 2px;
   background: #d5dde4;
   cursor: pointer;
+  touch-action: pan-y;
 }
 
 /* 5と6、10と11の間だけ、通常の3pxの2倍。 */
