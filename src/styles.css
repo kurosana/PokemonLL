@@ -986,20 +986,16 @@ select.input {
   padding: 0.15rem 0.3rem;
   border: 0;
   border-radius: 12px;
-  color: #fff;
+  color: #1a2733;
   font-size: 1.02rem;
   font-weight: 800;
   line-height: 1;
   text-align: center;
-  text-shadow:
-    0 1px 0 rgba(50, 16, 28, 0.45),
-    0 0 2px rgba(50, 16, 28, 0.35);
   cursor: pointer;
 }
 
 .shield-cell.is-draw {
-  color: #31404c;
-  text-shadow: none;
+  color: #1a2733;
 }
 
 .shield-cell.is-selected {
@@ -1030,6 +1026,7 @@ select.input {
 
 .battle-sheet td {
   height: 1.22rem;
+  min-height: 1.22rem;
   padding: 0 0.28rem;
   border: 1px solid rgba(48, 66, 82, 0.16);
   background: #fff;
@@ -1060,6 +1057,45 @@ select.input {
   align-items: baseline;
   justify-content: center;
   max-width: 100%;
+}
+
+.battle-sheet .move.is-stacked {
+  height: auto;
+  line-height: 1.15;
+  padding-top: 0.08rem;
+  padding-bottom: 0.1rem;
+}
+
+.battle-sheet .move-label.is-stacked {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  line-height: 1.15;
+}
+
+.battle-sheet .move-line {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  justify-content: center;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.battle-sheet .cct-mark {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  height: 0.78rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: var(--accent-deep);
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  flex: 0 0 auto;
 }
 
 .battle-sheet .move-dmg {
@@ -2371,6 +2407,43 @@ select.input {
   gap: 0.35rem;
 }
 
+.sim-mon-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  max-width: 100%;
+}
+
+.sim-real-stats {
+  margin: 0;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.06rem;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sim-real-stats div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.12rem;
+}
+
+.sim-real-stats dt {
+  margin: 0;
+  color: #5d6b78;
+  font-weight: 700;
+}
+
+.sim-real-stats dd {
+  margin: 0;
+  color: #1a2733;
+  font-weight: 800;
+}
+
 .sim-win,
 .sim-lose,
 .sim-draw {
@@ -2410,6 +2483,19 @@ select.input {
 }
 
 @media (max-width: 640px) {
+  .sim-mon-block .pokemon-dot-sprite {
+    width: 48px;
+    height: 48px;
+  }
+
+  .sim-real-stats {
+    font-size: 0.64rem;
+  }
+
+  .sim-matchup {
+    gap: 0.45rem;
+  }
+
   .move-columns {
     grid-template-columns: 1fr;
   }
