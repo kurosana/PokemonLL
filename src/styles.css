@@ -917,50 +917,93 @@ select.input {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), #7fe0c8);
+  background: linear-gradient(90deg, #14956f, #7fe0c8);
 }
 
-.hp-bar.is-foe .hp-track i {
-  background: linear-gradient(90deg, #c4453d, #f0a3a0);
+.hp-track.is-mid i {
+  background: linear-gradient(90deg, #d4920e, #f6d56a);
+}
+
+.hp-track.is-low i {
+  background: linear-gradient(90deg, #c41818, #f08a84);
 }
 
 .win-text { color: var(--good); }
 .lose-text { color: var(--bad); }
 
+.shield-panel {
+  gap: 0.65rem;
+}
+
 .shield-grid {
   display: grid;
-  grid-template-columns: 4.8rem repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 4.6rem repeat(3, minmax(0, 1fr));
+  gap: 6px;
   align-items: stretch;
 }
 
 .shield-head,
 .shield-corner {
-  display: grid;
-  place-items: center;
-  color: var(--text-faint);
-  font-size: 0.75rem;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 2.15rem;
+  padding: 0.12rem 0.25rem;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8f9fb 0%, #e6ebf0 100%);
+  color: #2c3a48;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.shield-corner {
+  position: relative;
+  display: block;
+  background: linear-gradient(135deg, #e7ebf0 49.5%, #c5ced6 50%, #f4e4ea 50.5%);
+}
+
+.shield-corner .corner-self,
+.shield-corner .corner-foe {
+  position: absolute;
+}
+
+.shield-corner .corner-self {
+  left: 3px;
+  bottom: 2px;
+}
+
+.shield-corner .corner-foe {
+  right: 3px;
+  top: 2px;
 }
 
 .shield-cell {
   display: grid;
-  gap: 2px;
-  min-height: 3.4rem;
-  padding: 0.45rem 0.3rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  place-items: center;
+  min-height: 2.15rem;
+  padding: 0.15rem 0.3rem;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1;
   text-align: center;
+  text-shadow:
+    0 1px 0 rgba(50, 16, 28, 0.45),
+    0 0 2px rgba(50, 16, 28, 0.35);
   cursor: pointer;
 }
 
-.shield-cell.is-win { background: rgba(31, 122, 77, 0.14); }
-.shield-cell.is-lose { background: rgba(196, 69, 61, 0.12); }
-.shield-cell.is-draw { background: var(--surface-alt); }
+.shield-cell.is-draw {
+  color: #31404c;
+  text-shadow: none;
+}
+
 .shield-cell.is-selected {
-  border-color: var(--signal);
-  box-shadow: 0 0 0 2px rgba(196, 154, 18, 0.28);
+  box-shadow: inset 0 0 0 3px #f0c84a;
 }
 
 .battle-sheet-panel {
@@ -1023,6 +1066,12 @@ select.input {
   color: #6a463c;
   font-size: 0.66rem;
   font-weight: 700;
+}
+
+.battle-sheet .move-guard,
+.battle-sheet .move.is-guard {
+  color: #1f5fa8;
+  font-weight: 800;
 }
 
 .battle-sheet tr.has-charge > td,
@@ -2273,20 +2322,20 @@ select.input {
   inset: -8%;
   z-index: 0;
   background:
-    radial-gradient(ellipse 46% 28% at 64% 6%, color-mix(in srgb, var(--type-accent) 50%, white) 0%, transparent 70%),
-    radial-gradient(ellipse 38% 36% at 98% 28%, color-mix(in srgb, var(--type-accent) 52%, white) 0%, transparent 68%),
-    radial-gradient(ellipse 24% 20% at 52% 48%, color-mix(in srgb, var(--type-accent) 36%, white) 0%, transparent 74%),
-    radial-gradient(ellipse 50% 34% at 86% 74%, color-mix(in srgb, var(--type-accent) 48%, white) 0%, transparent 70%),
-    radial-gradient(ellipse 32% 22% at 78% 98%, color-mix(in srgb, var(--type-accent) 44%, white) 0%, transparent 72%),
-    radial-gradient(ellipse 52% 30% at 8% 14%, color-mix(in srgb, var(--type-main) 54%, white) 0%, transparent 70%),
-    radial-gradient(ellipse 44% 38% at 24% 46%, color-mix(in srgb, var(--type-main) 50%, white) 0%, transparent 72%),
-    radial-gradient(ellipse 36% 26% at 62% 86%, color-mix(in srgb, var(--type-main) 42%, white) 0%, transparent 74%),
+    radial-gradient(ellipse 46% 28% at 64% 6%, color-mix(in srgb, var(--type-accent) 60%, white) 0%, transparent 70%),
+    radial-gradient(ellipse 38% 36% at 98% 28%, color-mix(in srgb, var(--type-accent) 62%, white) 0%, transparent 68%),
+    radial-gradient(ellipse 24% 20% at 52% 48%, color-mix(in srgb, var(--type-accent) 46%, white) 0%, transparent 74%),
+    radial-gradient(ellipse 50% 34% at 86% 74%, color-mix(in srgb, var(--type-accent) 58%, white) 0%, transparent 70%),
+    radial-gradient(ellipse 32% 22% at 78% 98%, color-mix(in srgb, var(--type-accent) 54%, white) 0%, transparent 72%),
+    radial-gradient(ellipse 52% 30% at 8% 14%, color-mix(in srgb, var(--type-main) 64%, white) 0%, transparent 70%),
+    radial-gradient(ellipse 44% 38% at 24% 46%, color-mix(in srgb, var(--type-main) 60%, white) 0%, transparent 72%),
+    radial-gradient(ellipse 36% 26% at 62% 86%, color-mix(in srgb, var(--type-main) 52%, white) 0%, transparent 74%),
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--type-main) 48%, white) 0%,
-      color-mix(in srgb, var(--type-main) 30%, white) 58%,
-      color-mix(in srgb, var(--type-accent) 22%, white) 76%,
-      color-mix(in srgb, var(--type-accent) 40%, white) 100%
+      color-mix(in srgb, var(--type-main) 58%, white) 0%,
+      color-mix(in srgb, var(--type-main) 40%, white) 58%,
+      color-mix(in srgb, var(--type-accent) 32%, white) 76%,
+      color-mix(in srgb, var(--type-accent) 50%, white) 100%
     );
   filter: url("#type-wash");
 }
@@ -2310,15 +2359,54 @@ select.input {
   min-width: 0;
 }
 
-.sim-outcome {
-  font-size: clamp(1.7rem, 5vw, 2.4rem);
-  line-height: 1.1;
-}
-
-.sim-hp-row {
+.sim-matchup {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.85rem;
+}
+
+.sim-matchup-side {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+}
+
+.sim-win,
+.sim-lose,
+.sim-draw {
+  margin: 0;
+  min-height: 2.15rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.sim-win {
+  font-size: 2.15rem;
+  background-image: linear-gradient(180deg, #ff9a9a 0%, #d10c0c 100%);
+}
+
+.sim-lose {
+  font-size: 1.65rem;
+  background-image: linear-gradient(180deg, #9ec5ff 0%, #1d4ed8 100%);
+}
+
+.sim-draw {
+  font-size: 1.35rem;
+  background-image: linear-gradient(180deg, #8ea0b0 0%, #3e5162 100%);
+}
+
+.sim-hp-now {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.sim-matchup .hp-track {
+  width: 100%;
 }
 
 @media (max-width: 640px) {
