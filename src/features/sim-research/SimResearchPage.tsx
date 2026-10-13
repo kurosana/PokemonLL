@@ -2,7 +2,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { ArrowLeft } from "lucide-react";
 import { LeagueIconButton } from "../../components/LeagueIconButton";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
-import type { PvpMove } from "../../lib/pogo/combat";
+import { damageForMove, type PvpMove } from "../../lib/pogo/combat";
 import { bestMoves } from "../../lib/pogo/moveScore";
 import { findPvpPokemon, resolveMoves } from "../../lib/pogo/pvpBundle";
 import {
@@ -166,6 +166,7 @@ export function SimResearchPage() {
                     attack={fighterA.build.attack}
                     defense={fighterA.build.defense}
                     stamina={fighterA.build.stamina}
+                    hits={matchupMoveHits(fighterA.input, fighterB.input)}
                   />
                   <MatchupSide
                     word={result.winner === "draw" ? null : result.winner === "b" ? "WIN" : "LOSE"}
@@ -175,6 +176,7 @@ export function SimResearchPage() {
                     attack={fighterB.build.attack}
                     defense={fighterB.build.defense}
                     stamina={fighterB.build.stamina}
+                    hits={matchupMoveHits(fighterB.input, fighterA.input)}
                   />
                 </div>
                 <p className="note">{result.turns}ターン</p>
@@ -660,6 +662,47 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
   );
 }
 
+type MatchupHitRow = {
+  id: string;
+  name: string;
+  damage: number;
+  percent: number;
+  remainRatio: number;
+  band: "low" | "mid" | "high";
+};
+
+function matchupMoveHits(attacker: FighterInput, defender: FighterInput): MatchupHitRow[] {
+  const moves = [attacker.fast, ...attacker.charged];
+  const seen = new Set<string>();
+  const rows: MatchupHitRow[] = [];
+  for (const move of moves) {
+    if (seen.has(move.id)) continue;
+    seen.add(move.id);
+    const damage = damageForMove(
+      move,
+      attacker.attack,
+      defender.defense,
+      attacker.types,
+      defender.types,
+      attacker.shadow,
+      defender.shadow,
+    );
+    const maxHp = Math.max(1, defender.hp);
+    const percent = (100 * damage) / maxHp;
+    const remainRatio = Math.max(0, Math.min(1, (maxHp - damage) / maxHp));
+    const band = remainRatio <= 0.2 ? "low" : remainRatio <= 0.5 ? "mid" : "high";
+    rows.push({
+      id: move.id,
+      name: move.name,
+      damage,
+      percent,
+      remainRatio,
+      band,
+    });
+  }
+  return rows;
+}
+
 function MatchupSide({
   word,
   side,
@@ -668,6 +711,7 @@ function MatchupSide({
   attack,
   defense,
   stamina,
+  hits,
 }: {
   word: "WIN" | "LOSE" | null;
   side: SideState;
@@ -676,6 +720,7 @@ function MatchupSide({
   attack: number;
   defense: number;
   stamina: number;
+  hits: MatchupHitRow[];
 }) {
   const ratio = max > 0 ? hp / max : 0;
   const band = ratio <= 0.2 ? "low" : ratio <= 0.5 ? "mid" : "high";
@@ -714,6 +759,40 @@ function MatchupSide({
       <div className={`hp-track is-${band}`}>
         <i style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
       </div>
+      {hits.length ? (
+        <ul className="sim-hit-list" aria-label="技ダメージ">
+          {hits.map((row) => {
+            const lossRatio = Math.max(0, Math.min(1, 1 - row.remainRatio));
+            const remainPct = row.remainRatio * 100;
+            const lossPct = lossRatio * 100;
+            const onlyRemain = lossPct <= 0;
+            const onlyLoss = remainPct <= 0;
+            return (
+              <li key={row.id} className="sim-hit-row">
+                <div className="sim-hit-meta">
+                  <span className="sim-hit-name">{row.name}</span>
+                  <span className="sim-hit-val num">
+                    {row.damage}({row.percent.toFixed(1)}%)
+                  </span>
+                </div>
+                <div className="hp-track hp-track-hit" aria-hidden="true">
+                  {onlyLoss ? (
+                    <i className="hp-hit-lost is-full" style={{ width: "100%" }} />
+                  ) : (
+                    <>
+                      <i
+                        className={`hp-hit-remain is-${row.band}${onlyRemain ? " is-full" : ""}`}
+                        style={{ width: `${remainPct}%` }}
+                      />
+                      {lossPct > 0 ? <i className="hp-hit-lost" style={{ width: `${lossPct}%` }} /> : null}
+                    </>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </div>
   );
 }
