@@ -9,6 +9,7 @@ import {
   computeBestRankings,
   findMaxLevelBuild,
   formatBattleStat,
+  formatScp,
   leagueCap,
   leagueConfigs,
   speciesDisplayName,
@@ -342,7 +343,20 @@ function FighterCard({
 
   return (
     <section className={`sim-card is-${tone}${types.length ? " has-type" : ""}`} style={typeStyle}>
-      <p className="sim-role">{title}</p>
+      <div className="sim-card-head">
+        <p className="sim-role">{title}</p>
+        {side.record ? (
+          <button
+            type="button"
+            className="league-choice sim-shadow-toggle"
+            aria-pressed={side.shadow}
+            aria-label={side.shadow ? "シャドウを外す" : "シャドウにする"}
+            onClick={() => onChange({ ...side, shadow: !side.shadow })}
+          >
+            影
+          </button>
+        ) : null}
+      </div>
       <button
         type="button"
         className="identity-pick"
@@ -391,13 +405,23 @@ function FighterCard({
       </button>
 
       {!side.record ? null : stats ? (
-        <p className="sim-cp-line">
-          <span>CP</span>
-          <strong className="sim-cp num">{stats.cp}</strong>
-          <span className="note">
-            Lv {stats.level.toFixed(1)} / HP {stats.stamina}
-          </span>
-        </p>
+        <>
+          <div className="sim-power-line">
+            <p className="sim-power-item">
+              <span>CP</span>
+              <strong className="sim-cp num">{stats.cp}</strong>
+            </p>
+            <p className="sim-power-item">
+              <span>SCP</span>
+              <strong className="sim-scp num">{formatScp(stats.statProduct)}</strong>
+            </p>
+          </div>
+          <p className="sim-battle-stats num" aria-label="実数値">
+            <span>{formatBattleStat(stats.attack, 2)}</span>
+            <span>{formatBattleStat(stats.defense, 2)}</span>
+            <span>{stats.stamina}</span>
+          </p>
+        </>
       ) : side.record ? (
         <p className="note">このリーグのCP上限に入るレベルがありません。</p>
       ) : null}
@@ -442,41 +466,6 @@ function FighterCard({
             </option>
           ))}
         </select>
-      </label>
-      <label className="field">
-        <span className="field-label">シールド</span>
-        <select
-          className="input"
-          value={side.shields}
-          onChange={(event) => onChange({ ...side, shields: Number(event.target.value) })}
-        >
-          <option value={0}>0</option>
-          <option value={1}>1</option>
-          <option value={2}>2</option>
-        </select>
-      </label>
-      <label className="field">
-        <span className="field-label">タイミング</span>
-        <select
-          className="input"
-          value={side.timing}
-          onChange={(event) => onChange({ ...side, timing: event.target.value as ChargeTiming })}
-        >
-          <option value="asap">最短</option>
-          <option value="cct">最適</option>
-        </select>
-      </label>
-      <label className="check-row">
-        <input type="checkbox" checked={side.shadow} onChange={(event) => onChange({ ...side, shadow: event.target.checked })} />
-        <span>シャドウ</span>
-      </label>
-      <label className="check-row">
-        <input
-          type="checkbox"
-          checked={side.applyChanceBuffs}
-          onChange={(event) => onChange({ ...side, applyChanceBuffs: event.target.checked })}
-        />
-        <span>追加効果</span>
       </label>
         </>
       ) : null}
