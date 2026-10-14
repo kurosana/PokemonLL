@@ -1104,6 +1104,31 @@ select.input {
   gap: 0.04rem;
 }
 
+.battle-sheet td.move.is-long-cct {
+  height: auto;
+  min-height: 1.22rem;
+  padding: 0.04rem 0.16rem 0.05rem;
+  line-height: 1.08;
+}
+
+.battle-sheet .move-label.has-cct.is-long {
+  width: 100%;
+  max-width: 100%;
+  gap: 0;
+  box-sizing: border-box;
+}
+
+.battle-sheet .move-label.has-cct.is-long .move-line-main {
+  max-width: 100%;
+}
+
+.battle-sheet .move-label.has-cct.is-long .cct-mark {
+  height: 0.68rem;
+  padding: 0 0.18rem;
+  font-size: 0.45rem;
+  letter-spacing: 0.01em;
+}
+
 .battle-sheet .move-line-main {
   display: inline-flex;
   gap: 0.3rem;
@@ -1207,7 +1232,7 @@ select.input {
   margin: 0.45rem 0 0.2rem;
   padding: 0 0.2rem;
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 800;
   text-align: left;
 }
@@ -2464,12 +2489,12 @@ select.input {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.35rem;
-  margin: 0;
+  margin: 0 0 -0.2rem;
   text-align: center;
   color: #1a2733;
   font-size: 0.82rem;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .sim-ivs {
