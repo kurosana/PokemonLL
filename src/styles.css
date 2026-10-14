@@ -2540,16 +2540,94 @@ select.input {
 
 .sim-iv-top {
   display: grid;
-  grid-template-columns: 3.6rem minmax(0, 1fr);
-  gap: 0.55rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.4rem;
   align-items: center;
+  min-width: 0;
+}
+
+.sim-iv-top .pokemon-dot-sprite {
+  flex: 0 0 auto;
+}
+
+.sim-iv-snapshot {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.08rem 0.55rem;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sim-iv-snapshot-empty {
+  margin: 0;
+  min-width: 0;
+}
+
+.sim-iv-power {
+  display: grid;
+  gap: 0.04rem;
+  min-width: 0;
+}
+
+.sim-iv-power p {
+  display: flex;
+  align-items: baseline;
+  gap: 0.22rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.sim-iv-power span {
+  color: var(--text-faint);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.sim-iv-power strong {
+  color: var(--accent-deep);
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.sim-iv-live-stats {
+  margin: 0;
+  display: grid;
+  gap: 0.02rem;
+  min-width: 0;
+}
+
+.sim-iv-live-stats div {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr);
+  gap: 0.18rem;
+  align-items: baseline;
+}
+
+.sim-iv-live-stats dt {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
+.sim-iv-live-stats dd {
+  margin: 0;
+  color: #1a2733;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .sim-iv-top .sim-iv-levels {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  flex-wrap: nowrap;
+  gap: 0.28rem;
   justify-content: flex-end;
+  flex: 0 0 auto;
 }
 
 .sim-iv-presets {
@@ -2583,9 +2661,10 @@ select.input {
 }
 
 .sim-iv-level {
-  min-width: 0;
-  min-height: 2.35rem;
-  padding: 0.2rem 0.3rem;
+  min-width: 2.7rem;
+  min-height: 2.15rem;
+  padding: 0.18rem 0.35rem;
+  font-size: 0.78rem;
   font-weight: 800;
 }
 
@@ -2602,6 +2681,17 @@ select.input {
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
+}
+
+@media (max-width: 420px) {
+  .sim-iv-top {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .sim-iv-top .sim-iv-levels {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 640px) {
