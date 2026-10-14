@@ -139,13 +139,8 @@ export function SimResearchPage() {
     setSideB((current) => (current.shields === shieldsB ? current : { ...current, shields: shieldsB }));
   };
 
-  const toggleShieldPin = (fromDock: boolean) => {
-    setShieldPinned((current) => {
-      if (current && fromDock) {
-        window.setTimeout(() => inlinePinRef.current?.focus({ preventScroll: true }), 0);
-      }
-      return !current;
-    });
+  const toggleShieldPin = () => {
+    setShieldPinned((current) => !current);
   };
 
   const setDockNode = useCallback((node: HTMLDivElement | null) => {
@@ -249,6 +244,32 @@ export function SimResearchPage() {
           {result && fighterA && fighterB ? (
             <>
               <section className="panel result-panel sim-result" aria-label="この対面">
+                <div className="sim-result-shadows">
+                  {sideA.record ? (
+                    <button
+                      type="button"
+                      className="league-choice sim-shadow-toggle"
+                      aria-pressed={sideA.shadow}
+                      aria-label={sideA.shadow ? "自分のシャドウを外す" : "自分をシャドウにする"}
+                      onClick={() => setSideA((current) => ({ ...current, shadow: !current.shadow }))}
+                    >
+                      <ShadowMark />
+                    </button>
+                  ) : (
+                    <span aria-hidden="true" />
+                  )}
+                  {sideB.record ? (
+                    <button
+                      type="button"
+                      className="league-choice sim-shadow-toggle"
+                      aria-pressed={sideB.shadow}
+                      aria-label={sideB.shadow ? "相手のシャドウを外す" : "相手をシャドウにする"}
+                      onClick={() => setSideB((current) => ({ ...current, shadow: !current.shadow }))}
+                    >
+                      <ShadowMark />
+                    </button>
+                  ) : null}
+                </div>
                 <div className="sim-matchup">
                   <MatchupSide
                     word={result.winner === "draw" ? null : result.winner === "a" ? "WIN" : "LOSE"}
@@ -283,7 +304,7 @@ export function SimResearchPage() {
                     grid={grid}
                     pinned={shieldPinned}
                     pinRef={inlinePinRef}
-                    onTogglePin={() => toggleShieldPin(false)}
+                    onTogglePin={toggleShieldPin}
                     onSelect={selectShields}
                   />
                   <p className="note">マスを押すと、その枚数の結果に切り替わります。自分の枚数が縦、相手が横です。</p>
@@ -296,15 +317,13 @@ export function SimResearchPage() {
                     sideA={sideA}
                     sideB={sideB}
                     grid={grid}
-                    pinned={shieldPinned}
-                    onTogglePin={() => toggleShieldPin(true)}
                     onSelect={selectShields}
                   />
                 </div>
               ) : null}
 
-              <p className="sim-section-label">タイムライン</p>
-              <section className="panel battle-sheet-panel">
+              <section className="panel battle-sheet-panel" aria-label="タイムライン">
+                <p className="battle-sheet-heading">タイムライン</p>
                 <BattleSheet events={result.timeline} />
               </section>
             </>
@@ -333,15 +352,31 @@ function ShieldGridView({
   sideA: SideState;
   sideB: SideState;
   grid: SimResult[][];
-  pinned: boolean;
+  pinned?: boolean;
   pinRef?: Ref<HTMLButtonElement>;
-  onTogglePin: () => void;
+  onTogglePin?: () => void;
   onSelect: (shieldsA: number, shieldsB: number) => void;
 }) {
   if (!sideA.record || !sideB.record) return null;
-  const label = variant === "dock" ? "画面下部に固定したシールド9マス" : "シールド9マス";
+  const dockOnly = variant === "dock";
+  const label = dockOnly ? "画面下部に固定した対面表" : "対面表";
   return (
-    <section className="panel shield-panel" aria-label={label}>
+    <section className={`panel shield-panel${dockOnly ? " is-dock-only" : ""}`} aria-label={label}>
+      {!dockOnly ? (
+        <div className="shield-panel-head">
+          <h2 className="shield-panel-title">対面表</h2>
+          <button
+            ref={pinRef}
+            type="button"
+            className="league-choice shield-pin-toggle"
+            aria-pressed={pinned}
+            aria-label={pinned ? "画面固定を外す" : "画面下部に固定"}
+            onClick={onTogglePin}
+          >
+            <Pin size={18} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
       <div className="shield-grid" role="grid" aria-label="シールド評価">
         <span className="shield-corner">
           <PokemonDotSprite
@@ -392,18 +427,6 @@ function ShieldGridView({
             );
           }),
         ])}
-      </div>
-      <div className="shield-pin-row">
-        <button
-          ref={pinRef}
-          type="button"
-          className="league-choice shield-pin-toggle"
-          aria-pressed={pinned}
-          aria-label={pinned ? "画面固定を外す" : "画面下部に固定"}
-          onClick={onTogglePin}
-        >
-          <Pin size={18} aria-hidden="true" />
-        </button>
       </div>
     </section>
   );
