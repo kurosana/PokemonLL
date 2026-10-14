@@ -140,6 +140,7 @@ button {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  padding-bottom: var(--shield-dock-h, 0px);
 }
 
 .site-header {
@@ -970,8 +971,62 @@ select.input {
 .win-text { color: var(--good); }
 .lose-text { color: var(--bad); }
 
+.shield-block {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.shield-block > .note {
+  margin: 0;
+}
+
 .shield-panel {
-  gap: 0.65rem;
+  position: relative;
+  gap: 0;
+  padding: 0.85rem 3.45rem 0.55rem 0.85rem;
+}
+
+.shield-pin-row {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.55rem;
+  display: flex;
+}
+
+.shield-panel .shield-pin-toggle {
+  min-width: 2.65rem;
+  min-height: 2.15rem;
+  padding: 0.18rem 0.45rem;
+  color: var(--accent-deep);
+}
+
+.shield-pin-toggle svg {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.shield-dock {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: 0;
+  width: min(var(--max), calc(100% - 40px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.shield-dock .shield-panel {
+  pointer-events: auto;
+  margin: 0;
+  padding-bottom: calc(0.55rem + env(safe-area-inset-bottom));
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+  box-shadow: 0 -12px 28px rgba(28, 45, 62, 0.18);
+}
+
+.shield-dock .shield-pin-row {
+  bottom: calc(0.55rem + env(safe-area-inset-bottom));
 }
 
 .shield-grid {
@@ -1371,6 +1426,10 @@ select.input {
 }
 
 @media (max-width: 640px) {
+  .shield-dock {
+    width: min(var(--max), calc(100% - 28px));
+  }
+
   .home-intro .btn-primary,
   .home-cta-row .btn {
     width: 100%;
