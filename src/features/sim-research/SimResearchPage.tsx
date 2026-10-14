@@ -94,8 +94,10 @@ function levelScale(
   };
 }
 
+/** SCP順位が2桁（1～99位）の個体だけから、攻撃・防御・HPの実数値が最大の行を選ぶ。 */
 function pickStatMax(rows: RankingRow[], key: "attack" | "defense" | "stamina") {
-  return rows.reduce<RankingRow | null>((best, row) => {
+  const eligible = rows.filter((row) => row.rank <= 99);
+  return eligible.reduce<RankingRow | null>((best, row) => {
     if (!best || row[key] > best[key] + 1e-6) return row;
     if (Math.abs(row[key] - best[key]) <= 1e-6 && row.rank < best.rank) return row;
     return best;
