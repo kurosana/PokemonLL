@@ -958,6 +958,11 @@ function IvPopup({
       hp: pickStatMax(rows, "stamina"),
     };
   }, [byLevel, cap, draftLevel, levels, side.record]);
+  const snapshot = useMemo(() => {
+    if (!side.record) return null;
+    const scale = levelScale({ levels, byLevel }, draftLevel);
+    return findMaxLevelBuild(side.record, draft.atk, draft.def, draft.sta, scale.levels, scale.byLevel, cap);
+  }, [byLevel, cap, draft.atk, draft.def, draft.sta, draftLevel, levels, side.record]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -987,6 +992,36 @@ function IvPopup({
               size={56}
             />
           ) : null}
+          {snapshot ? (
+            <div className="sim-iv-snapshot">
+              <div className="sim-iv-power">
+                <p>
+                  <span>CP</span>
+                  <strong className="num">{snapshot.cp}</strong>
+                </p>
+                <p>
+                  <span>SCP</span>
+                  <strong className="num">{formatScp(snapshot.statProduct)}</strong>
+                </p>
+              </div>
+              <dl className="sim-iv-live-stats">
+                <div>
+                  <dt>攻撃</dt>
+                  <dd className="num">{formatBattleStat(snapshot.attack, 2)}</dd>
+                </div>
+                <div>
+                  <dt>防御</dt>
+                  <dd className="num">{formatBattleStat(snapshot.defense, 2)}</dd>
+                </div>
+                <div>
+                  <dt>HP</dt>
+                  <dd className="num">{snapshot.stamina}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : (
+            <p className="note sim-iv-snapshot-empty">この上限では入りません</p>
+          )}
           <div className="sim-iv-levels" role="group" aria-label="レベル上限">
             {([50, 51] as const).map((level) => (
               <button
