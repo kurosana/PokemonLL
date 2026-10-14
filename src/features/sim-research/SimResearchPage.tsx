@@ -21,6 +21,27 @@ import { simulateBattle, simulateShieldGrid, type ChargeTiming, type FighterInpu
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
 
+const SOZAI_SHADOW_SRC = "/Image/sozai/shadow.png";
+const SOZAI_SHIELD_SRC = "/Image/sozai/shield-ui.png";
+
+function ShadowMark() {
+  return <img className="sim-shadow-mark" src={SOZAI_SHADOW_SRC} alt="" width={22} height={22} decoding="async" />;
+}
+
+function ShieldMark({ size = 16 }: { size?: number }) {
+  const height = Math.round(size * (25 / 22));
+  return (
+    <img
+      className="sozai-shield"
+      src={SOZAI_SHIELD_SRC}
+      alt="防"
+      width={size}
+      height={height}
+      decoding="async"
+    />
+  );
+}
+
 type SideState = {
   record: PogoStatRecord | null;
   label: string;
@@ -208,27 +229,13 @@ export function SimResearchPage() {
                     </span>
                     {[0, 1, 2].map((shieldsB) => (
                       <span key={`h-${shieldsB}`} className="shield-head">
-                        <PokemonDotSprite
-                          pokemonId={sideB.record!.pokemon_id}
-                          form={sideB.exactSprite ? undefined : sideB.record!.form}
-                          exact={sideB.exactSprite}
-                          spriteSuffix={sideB.spriteSuffix}
-                          alt=""
-                          size={22}
-                        />
+                        <ShieldMark size={15} />
                         <span>×{shieldsB}</span>
                       </span>
                     ))}
                     {grid.flatMap((row, shieldsA) => [
                       <span key={`l-${shieldsA}`} className="shield-head">
-                        <PokemonDotSprite
-                          pokemonId={sideA.record!.pokemon_id}
-                          form={sideA.exactSprite ? undefined : sideA.record!.form}
-                          exact={sideA.exactSprite}
-                          spriteSuffix={sideA.spriteSuffix}
-                          alt=""
-                          size={22}
-                        />
+                        <ShieldMark size={15} />
                         <span>×{shieldsA}</span>
                       </span>,
                       ...row.map((cell, shieldsB) => {
@@ -257,6 +264,7 @@ export function SimResearchPage() {
                 </section>
               ) : null}
 
+              <p className="sim-section-label">タイムライン</p>
               <section className="panel battle-sheet-panel">
                 <BattleSheet events={result.timeline} />
               </section>
@@ -353,7 +361,7 @@ function FighterCard({
             aria-label={side.shadow ? "シャドウを外す" : "シャドウにする"}
             onClick={() => onChange({ ...side, shadow: !side.shadow })}
           >
-            影
+            <ShadowMark />
           </button>
         ) : null}
       </div>
@@ -621,10 +629,22 @@ function BattleSheet({ events }: { events: TimelineEvent[] }) {
 function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
   if (cell && !cell.show) return null;
   if (!cell?.name) {
-    if (guard) return <td className={`move is-guard${cell?.endsCharge ? " ends-charge" : ""}`}>防</td>;
+    if (guard) {
+      return (
+        <td className={`move is-guard${cell?.endsCharge ? " ends-charge" : ""}`}>
+          <ShieldMark size={13} />
+        </td>
+      );
+    }
     return <td className="move is-empty" />;
   }
   const stacked = guard;
+  const moveMain = (
+    <span className="move-line-main">
+      {cell.name ? <span className="move-name">{cell.name}</span> : null}
+      {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
+    </span>
+  );
   return (
     <td
       className={`move${cell.endsCharge ? " ends-charge" : ""}${stacked ? " is-stacked" : ""}`}
@@ -633,17 +653,13 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
     >
       {stacked ? (
         <span className="move-label is-stacked">
-          <span className="move-line">
-            {cell.name ? <span>{cell.name}</span> : null}
-            {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
-            {cell.cct ? <span className="cct-mark">CCT</span> : null}
-          </span>
-          <span className="move-guard">防</span>
+          {moveMain}
+          {cell.cct ? <span className="cct-mark">CCT</span> : null}
+          <ShieldMark size={13} />
         </span>
       ) : (
-        <span className="move-label">
-          {cell.name ? <span>{cell.name}</span> : null}
-          {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
+        <span className={`move-label${cell.cct ? " has-cct" : ""}`}>
+          {moveMain}
           {cell.cct ? <span className="cct-mark">CCT</span> : null}
         </span>
       )}
