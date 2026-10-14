@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft } from "lucide-react";
 import { LeagueIconButton } from "../../components/LeagueIconButton";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
@@ -908,19 +909,22 @@ function IvFields({
           </div>
         ))}
       </div>
-      {open && side.record ? (
-        <IvPopup
-          side={side}
-          cap={cap}
-          levels={levels}
-          byLevel={byLevel}
-          onClose={() => setOpen(false)}
-          onApply={(next) => {
-            onChange({ ...side, ...next });
-            setOpen(false);
-          }}
-        />
-      ) : null}
+      {open && side.record
+        ? createPortal(
+            <IvPopup
+              side={side}
+              cap={cap}
+              levels={levels}
+              byLevel={byLevel}
+              onClose={() => setOpen(false)}
+              onApply={(next) => {
+                onChange({ ...side, ...next });
+                setOpen(false);
+              }}
+            />,
+            document.body,
+          )
+        : null}
     </>
   );
 }
@@ -969,9 +973,9 @@ function IvPopup({
   };
 
   return (
-    <div className="sim-iv-overlay" role="dialog" aria-modal="true" aria-label="個体値">
-      <button type="button" className="sim-iv-backdrop" aria-label="閉じる" onClick={onClose} />
-      <div className="sim-iv-panel">
+    <div className="search-overlay" role="dialog" aria-modal="true" aria-label="個体値">
+      <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
+      <div className="search-overlay-panel sim-iv-panel">
         <div className="sim-iv-top">
           {side.record ? (
             <PokemonDotSprite
@@ -1022,13 +1026,18 @@ function IvPopup({
             onChange={setDraft}
           />
         </div>
-        <button
-          type="button"
-          className="btn btn-primary sim-iv-ok"
-          onClick={() => onApply({ atkIv: draft.atk, defIv: draft.def, staIv: draft.sta, maxLevel: draftLevel })}
-        >
-          OK
-        </button>
+        <div className="sim-iv-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            閉じる
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => onApply({ atkIv: draft.atk, defIv: draft.def, staIv: draft.sta, maxLevel: draftLevel })}
+          >
+            OK
+          </button>
+        </div>
       </div>
     </div>
   );
