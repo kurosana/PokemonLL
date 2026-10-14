@@ -317,13 +317,15 @@ export function SimResearchPage() {
                     sideA={sideA}
                     sideB={sideB}
                     grid={grid}
+                    pinned={shieldPinned}
+                    onTogglePin={toggleShieldPin}
                     onSelect={selectShields}
                   />
                 </div>
               ) : null}
 
-              <section className="panel battle-sheet-panel" aria-label="タイムライン">
-                <p className="battle-sheet-heading">タイムライン</p>
+              <p className="sim-section-label">タイムライン</p>
+              <section className="panel battle-sheet-panel">
                 <BattleSheet events={result.timeline} />
               </section>
             </>
@@ -369,14 +371,24 @@ function ShieldGridView({
             ref={pinRef}
             type="button"
             className="league-choice shield-pin-toggle"
-            aria-pressed={pinned}
+            aria-pressed={Boolean(pinned)}
             aria-label={pinned ? "画面固定を外す" : "画面下部に固定"}
             onClick={onTogglePin}
           >
-            <Pin size={18} aria-hidden="true" />
+            <Pin size={12} aria-hidden="true" />
           </button>
         </div>
-      ) : null}
+      ) : (
+        <button
+          type="button"
+          className="league-choice shield-pin-toggle is-dock"
+          aria-pressed={Boolean(pinned)}
+          aria-label="画面固定を外す"
+          onClick={onTogglePin}
+        >
+          <Pin size={12} aria-hidden="true" />
+        </button>
+      )}
       <div className="shield-grid" role="grid" aria-label="シールド評価">
         <span className="shield-corner">
           <PokemonDotSprite
