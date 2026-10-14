@@ -2545,10 +2545,17 @@ select.input {
   align-items: center;
 }
 
-.sim-iv-presets {
+.sim-iv-top .sim-iv-levels {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.sim-iv-presets {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
 }
 
 .sim-iv-preset {
@@ -2570,14 +2577,9 @@ select.input {
 
 .sim-iv-body {
   display: grid;
-  grid-template-columns: 4.4rem minmax(0, 1fr);
+  grid-template-columns: minmax(4.8rem, auto) minmax(0, 1fr);
   gap: 0.45rem;
   align-items: start;
-}
-
-.sim-iv-levels {
-  display: grid;
-  gap: 0.35rem;
 }
 
 .sim-iv-level {
@@ -2607,8 +2609,9 @@ select.input {
     grid-template-columns: 1fr;
   }
 
-  .sim-iv-levels {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .sim-iv-body .sim-iv-presets {
+    display: flex;
+    flex-wrap: wrap;
   }
 }
 
