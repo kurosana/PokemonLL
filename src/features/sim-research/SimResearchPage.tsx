@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pin } from "lucide-react";
 import { LeagueIconButton } from "../../components/LeagueIconButton";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
 import { damageForMove, type PvpMove } from "../../lib/pogo/combat";
@@ -20,7 +20,14 @@ import {
   type RankingRow,
   type SpeciesGroup,
 } from "../../lib/pogo/research";
-import { simulateBattle, simulateShieldGrid, type ChargeTiming, type FighterInput, type TimelineEvent } from "../../lib/pogo/simulate";
+import {
+  simulateBattle,
+  simulateShieldGrid,
+  type ChargeTiming,
+  type FighterInput,
+  type SimResult,
+  type TimelineEvent,
+} from "../../lib/pogo/simulate";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
@@ -109,6 +116,9 @@ export function SimResearchPage() {
   const [leagueId, setLeagueId] = useState<LeagueId>("great");
   const [sideA, setSideA] = useState<SideState>(emptySide);
   const [sideB, setSideB] = useState<SideState>(emptySide);
+  const [shieldPinned, setShieldPinned] = useState(false);
+  const inlinePinRef = useRef<HTMLButtonElement>(null);
+  const dockObserver = useRef<ResizeObserver | null>(null);
 
   const cap = leagueCap(leagueId);
   const fighterA = packFighter(sideA, data, cpData, cap);
@@ -123,6 +133,43 @@ export function SimResearchPage() {
     if (!fighterA || !fighterB) return null;
     return simulateShieldGrid(fighterA.input, fighterB.input);
   }, [fighterA, fighterB]);
+
+  const selectShields = (shieldsA: number, shieldsB: number) => {
+    setSideA((current) => (current.shields === shieldsA ? current : { ...current, shields: shieldsA }));
+    setSideB((current) => (current.shields === shieldsB ? current : { ...current, shields: shieldsB }));
+  };
+
+  const toggleShieldPin = (fromDock: boolean) => {
+    setShieldPinned((current) => {
+      if (current && fromDock) {
+        window.setTimeout(() => inlinePinRef.current?.focus({ preventScroll: true }), 0);
+      }
+      return !current;
+    });
+  };
+
+  const setDockNode = useCallback((node: HTMLDivElement | null) => {
+    dockObserver.current?.disconnect();
+    dockObserver.current = null;
+    if (!node) {
+      document.documentElement.style.removeProperty("--shield-dock-h");
+      return;
+    }
+    const apply = () => {
+      document.documentElement.style.setProperty("--shield-dock-h", `${Math.ceil(node.getBoundingClientRect().height)}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    dockObserver.current = observer;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      dockObserver.current?.disconnect();
+      document.documentElement.style.removeProperty("--shield-dock-h");
+    };
+  }, []);
 
   return (
     <div className="page-iv sim-page">
@@ -228,63 +275,32 @@ export function SimResearchPage() {
               </section>
 
               {grid && sideA.record && sideB.record ? (
-                <section className="panel shield-panel" aria-label="シールド9マス">
-                  <div className="shield-grid" role="grid" aria-label="シールド評価">
-                    <span className="shield-corner">
-                      <PokemonDotSprite
-                        className="corner-self"
-                        pokemonId={sideA.record.pokemon_id}
-                        form={sideA.exactSprite ? undefined : sideA.record.form}
-                        exact={sideA.exactSprite}
-                        spriteSuffix={sideA.spriteSuffix}
-                        alt=""
-                        size={22}
-                      />
-                      <PokemonDotSprite
-                        className="corner-foe"
-                        pokemonId={sideB.record.pokemon_id}
-                        form={sideB.exactSprite ? undefined : sideB.record.form}
-                        exact={sideB.exactSprite}
-                        spriteSuffix={sideB.spriteSuffix}
-                        alt=""
-                        size={22}
-                      />
-                    </span>
-                    {[0, 1, 2].map((shieldsB) => (
-                      <span key={`h-${shieldsB}`} className="shield-head">
-                        <ShieldMark size={15} />
-                        <span>×{shieldsB}</span>
-                      </span>
-                    ))}
-                    {grid.flatMap((row, shieldsA) => [
-                      <span key={`l-${shieldsA}`} className="shield-head">
-                        <ShieldMark size={15} />
-                        <span>×{shieldsA}</span>
-                      </span>,
-                      ...row.map((cell, shieldsB) => {
-                        const selected = sideA.shields === shieldsA && sideB.shields === shieldsB;
-                        const tone = cell.rating > 100 ? "win" : cell.rating < 100 ? "lose" : "draw";
-                        return (
-                          <button
-                            key={`${shieldsA}-${shieldsB}`}
-                            type="button"
-                            className={`shield-cell is-${tone}${selected ? " is-selected" : ""}`}
-                            style={{ background: shieldFill(cell.rating) }}
-                            aria-pressed={selected}
-                            aria-label={`自分${shieldsA} 相手${shieldsB} ${cell.rating}`}
-                            onClick={() => {
-                              setSideA((current) => ({ ...current, shields: shieldsA }));
-                              setSideB((current) => ({ ...current, shields: shieldsB }));
-                            }}
-                          >
-                            <strong className="num">{cell.rating}</strong>
-                          </button>
-                        );
-                      }),
-                    ])}
-                  </div>
+                <div className="shield-block">
+                  <ShieldGridView
+                    variant="inline"
+                    sideA={sideA}
+                    sideB={sideB}
+                    grid={grid}
+                    pinned={shieldPinned}
+                    pinRef={inlinePinRef}
+                    onTogglePin={() => toggleShieldPin(false)}
+                    onSelect={selectShields}
+                  />
                   <p className="note">マスを押すと、その枚数の結果に切り替わります。自分の枚数が縦、相手が横です。</p>
-                </section>
+                </div>
+              ) : null}
+              {shieldPinned && grid && sideA.record && sideB.record ? (
+                <div className="shield-dock" ref={setDockNode}>
+                  <ShieldGridView
+                    variant="dock"
+                    sideA={sideA}
+                    sideB={sideB}
+                    grid={grid}
+                    pinned={shieldPinned}
+                    onTogglePin={() => toggleShieldPin(true)}
+                    onSelect={selectShields}
+                  />
+                </div>
               ) : null}
 
               <p className="sim-section-label">タイムライン</p>
@@ -300,6 +316,96 @@ export function SimResearchPage() {
         </>
       ) : null}
     </div>
+  );
+}
+
+function ShieldGridView({
+  variant,
+  sideA,
+  sideB,
+  grid,
+  pinned,
+  pinRef,
+  onTogglePin,
+  onSelect,
+}: {
+  variant: "inline" | "dock";
+  sideA: SideState;
+  sideB: SideState;
+  grid: SimResult[][];
+  pinned: boolean;
+  pinRef?: Ref<HTMLButtonElement>;
+  onTogglePin: () => void;
+  onSelect: (shieldsA: number, shieldsB: number) => void;
+}) {
+  if (!sideA.record || !sideB.record) return null;
+  const label = variant === "dock" ? "画面下部に固定したシールド9マス" : "シールド9マス";
+  return (
+    <section className="panel shield-panel" aria-label={label}>
+      <div className="shield-grid" role="grid" aria-label="シールド評価">
+        <span className="shield-corner">
+          <PokemonDotSprite
+            className="corner-self"
+            pokemonId={sideA.record.pokemon_id}
+            form={sideA.exactSprite ? undefined : sideA.record.form}
+            exact={sideA.exactSprite}
+            spriteSuffix={sideA.spriteSuffix}
+            alt=""
+            size={22}
+          />
+          <PokemonDotSprite
+            className="corner-foe"
+            pokemonId={sideB.record.pokemon_id}
+            form={sideB.exactSprite ? undefined : sideB.record.form}
+            exact={sideB.exactSprite}
+            spriteSuffix={sideB.spriteSuffix}
+            alt=""
+            size={22}
+          />
+        </span>
+        {[0, 1, 2].map((shieldsB) => (
+          <span key={`h-${shieldsB}`} className="shield-head">
+            <ShieldMark size={15} />
+            <span>×{shieldsB}</span>
+          </span>
+        ))}
+        {grid.flatMap((row, shieldsA) => [
+          <span key={`l-${shieldsA}`} className="shield-head">
+            <ShieldMark size={15} />
+            <span>×{shieldsA}</span>
+          </span>,
+          ...row.map((cell, shieldsB) => {
+            const selected = sideA.shields === shieldsA && sideB.shields === shieldsB;
+            const tone = cell.rating > 100 ? "win" : cell.rating < 100 ? "lose" : "draw";
+            return (
+              <button
+                key={`${shieldsA}-${shieldsB}`}
+                type="button"
+                className={`shield-cell is-${tone}${selected ? " is-selected" : ""}`}
+                style={{ background: shieldFill(cell.rating) }}
+                aria-pressed={selected}
+                aria-label={`自分${shieldsA} 相手${shieldsB} ${cell.rating}`}
+                onClick={() => onSelect(shieldsA, shieldsB)}
+              >
+                <strong className="num">{cell.rating}</strong>
+              </button>
+            );
+          }),
+        ])}
+      </div>
+      <div className="shield-pin-row">
+        <button
+          ref={pinRef}
+          type="button"
+          className="league-choice shield-pin-toggle"
+          aria-pressed={pinned}
+          aria-label={pinned ? "画面固定を外す" : "画面下部に固定"}
+          onClick={onTogglePin}
+        >
+          <Pin size={18} aria-hidden="true" />
+        </button>
+      </div>
+    </section>
   );
 }
 
