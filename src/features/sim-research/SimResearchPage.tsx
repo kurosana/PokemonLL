@@ -632,7 +632,9 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
     if (guard) {
       return (
         <td className={`move is-guard${cell?.endsCharge ? " ends-charge" : ""}`}>
-          <ShieldMark size={13} />
+          <span className="move-shield-wrap">
+            <ShieldMark size={13} />
+          </span>
         </td>
       );
     }
@@ -655,7 +657,9 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
         <span className="move-label is-stacked">
           {moveMain}
           {cell.cct ? <span className="cct-mark">CCT</span> : null}
-          <ShieldMark size={13} />
+          <span className="move-shield-wrap">
+            <ShieldMark size={13} />
+          </span>
         </span>
       ) : (
         <span className={`move-label${cell.cct ? " has-cct" : ""}`}>
