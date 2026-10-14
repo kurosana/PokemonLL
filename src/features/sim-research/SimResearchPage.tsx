@@ -973,7 +973,7 @@ function IvPopup({
   };
 
   return (
-    <div className="search-overlay" role="dialog" aria-modal="true" aria-label="個体値">
+    <div className="search-overlay is-centered" role="dialog" aria-modal="true" aria-label="個体値">
       <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
       <div className="search-overlay-panel sim-iv-panel">
         <div className="sim-iv-top">
@@ -987,22 +987,6 @@ function IvPopup({
               size={56}
             />
           ) : null}
-          <div className="sim-iv-presets">
-            <button type="button" className="sim-iv-preset" disabled={!presets?.scp} onClick={() => applyPreset(presets?.scp ?? null)}>
-              SCP1位
-            </button>
-            <button type="button" className="sim-iv-preset" disabled={!presets?.attack} onClick={() => applyPreset(presets?.attack ?? null)}>
-              2桁A大
-            </button>
-            <button type="button" className="sim-iv-preset" disabled={!presets?.defense} onClick={() => applyPreset(presets?.defense ?? null)}>
-              2桁B大
-            </button>
-            <button type="button" className="sim-iv-preset" disabled={!presets?.hp} onClick={() => applyPreset(presets?.hp ?? null)}>
-              2桁H大
-            </button>
-          </div>
-        </div>
-        <div className="sim-iv-body">
           <div className="sim-iv-levels" role="group" aria-label="レベル上限">
             {([50, 51] as const).map((level) => (
               <button
@@ -1012,9 +996,25 @@ function IvPopup({
                 aria-pressed={draftLevel === level}
                 onClick={() => setDraftLevel(level)}
               >
-                {level}
+                Lv{level}
               </button>
             ))}
+          </div>
+        </div>
+        <div className="sim-iv-body">
+          <div className="sim-iv-presets">
+            <button type="button" className="sim-iv-preset" disabled={!presets?.scp} onClick={() => applyPreset(presets?.scp ?? null)}>
+              SCP1位
+            </button>
+            <button type="button" className="sim-iv-preset" disabled={!presets?.attack} onClick={() => applyPreset(presets?.attack ?? null)}>
+              2桁A最大
+            </button>
+            <button type="button" className="sim-iv-preset" disabled={!presets?.defense} onClick={() => applyPreset(presets?.defense ?? null)}>
+              2桁B最大
+            </button>
+            <button type="button" className="sim-iv-preset" disabled={!presets?.hp} onClick={() => applyPreset(presets?.hp ?? null)}>
+              2桁H最大
+            </button>
           </div>
           <IvBars
             atk={draft.atk}

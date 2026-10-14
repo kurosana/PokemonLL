@@ -2148,6 +2148,19 @@ select.input {
   background: var(--surface);
 }
 
+.search-overlay.is-centered {
+  align-items: center;
+  padding: max(1rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+}
+
+.search-overlay.is-centered .search-overlay-panel {
+  align-self: center;
+  max-height: min(100dvh - 2rem, 44rem);
+  padding: 0.85rem 1rem 1rem;
+  border-radius: 12px;
+}
+
 .search-overlay-bar {
   display: flex;
   gap: 8px;
@@ -2532,10 +2545,17 @@ select.input {
   align-items: center;
 }
 
-.sim-iv-presets {
+.sim-iv-top .sim-iv-levels {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.sim-iv-presets {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
 }
 
 .sim-iv-preset {
@@ -2557,14 +2577,9 @@ select.input {
 
 .sim-iv-body {
   display: grid;
-  grid-template-columns: 4.4rem minmax(0, 1fr);
+  grid-template-columns: minmax(4.8rem, auto) minmax(0, 1fr);
   gap: 0.45rem;
   align-items: start;
-}
-
-.sim-iv-levels {
-  display: grid;
-  gap: 0.35rem;
 }
 
 .sim-iv-level {
@@ -2594,8 +2609,9 @@ select.input {
     grid-template-columns: 1fr;
   }
 
-  .sim-iv-levels {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .sim-iv-body .sim-iv-presets {
+    display: flex;
+    flex-wrap: wrap;
   }
 }
 
