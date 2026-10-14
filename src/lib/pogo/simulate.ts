@@ -46,6 +46,8 @@ export type TimelineEvent = {
   damage: number;
   shielded: boolean;
   actionId: number;
+  /** スペシャルが打てるのに、最適タイミングまでノーマルアタックを足した。 */
+  cct: boolean;
   hpA: number;
   hpB: number;
   energyA: number;
@@ -70,6 +72,7 @@ type Action = {
   totalTurns: number;
   id: number;
   startTurn: number;
+  cct: boolean;
 };
 
 type FighterState = FighterInput & {
@@ -317,7 +320,15 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
       if (self.action) continue;
       const charged = pickCharged(self, other);
       if (charged && shouldThrow(self, other, charged)) {
-        self.action = { kind: "charged", move: charged, turnsLeft: 1, totalTurns: 1, id: nextActionId++, startTurn: turn };
+        self.action = {
+          kind: "charged",
+          move: charged,
+          turnsLeft: 1,
+          totalTurns: 1,
+          id: nextActionId++,
+          startTurn: turn,
+          cct: false,
+        };
       } else {
         const turns = Math.max(1, self.fast.turns);
         self.action = {
@@ -327,6 +338,7 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
           totalTurns: turns,
           id: nextActionId++,
           startTurn: turn,
+          cct: Boolean(charged),
         };
       }
     }
@@ -417,6 +429,7 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         damage: dealt[fighter.id].damage,
         shielded: dealt[fighter.id].shielded,
         actionId: action.id,
+        cct: action.cct,
         ...snap,
       });
     }

@@ -158,6 +158,17 @@ function queryHiraganaVariants(query: string) {
   return [...variants].filter((variant) => variant.length > 0);
 }
 
+/** 図鑑名と、ひらがな・カタカナ・ローマ字の入力が、長音のゆれを除いて同じ文字列か。部分一致は含めない。 */
+export function matchesNameExactly(query: string, japanese: string) {
+  const raw = query.normalize("NFKC").trim().toLowerCase();
+  if (!raw) return false;
+  const nameHira = expandLongVowel(
+    toHiragana(japanese.normalize("NFKC").toLowerCase().replace(/[♀♂\s・･._\-ｰ'"’]/g, "")),
+  );
+  const names = new Set(nameHira);
+  return queryHiraganaVariants(raw).some((variant) => names.has(variant));
+}
+
 export function matchesNameQuery(query: string, japanese: string, english: string, dex: number) {
   const raw = query.normalize("NFKC").trim().toLowerCase();
   if (!raw) return true;

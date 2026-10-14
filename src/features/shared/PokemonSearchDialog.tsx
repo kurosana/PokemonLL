@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
-import { matchesNameQuery } from "../../lib/pogo/kanaSearch";
+import { matchesNameExactly, matchesNameQuery } from "../../lib/pogo/kanaSearch";
 import { speciesDisplayName, type SpeciesGroup } from "../../lib/pogo/research";
 
 export function PokemonSearchDialog({
@@ -17,6 +17,9 @@ export function PokemonSearchDialog({
   onSelect: (group: SpeciesGroup) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [composing, setComposing] = useState(false);
+  const typed = useRef(false);
+  const pickedName = useRef("");
 
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -40,9 +43,29 @@ export function PokemonSearchDialog({
       .slice(0, 100);
   }, [counts, groups, query]);
 
+  const exactHit = useMemo(() => {
+    const trimmed = query.trim();
+    if (!open || composing || !trimmed || results.length !== 1) return null;
+    const group = results[0];
+    if (!matchesNameExactly(trimmed, speciesDisplayName(group))) return null;
+    return group;
+  }, [composing, open, query, results]);
+
   useEffect(() => {
-    if (open) setQuery("");
+    if (!open) {
+      setQuery("");
+      setComposing(false);
+      typed.current = false;
+      pickedName.current = "";
+    }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !typed.current || !exactHit) return;
+    if (pickedName.current === exactHit.name) return;
+    pickedName.current = exactHit.name;
+    onSelect(exactHit);
+  }, [exactHit, onSelect, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +91,12 @@ export function PokemonSearchDialog({
             spellCheck={false}
             value={query}
             autoFocus
-            onChange={(event) => setQuery(event.target.value)}
+            onCompositionStart={() => setComposing(true)}
+            onCompositionEnd={() => setComposing(false)}
+            onChange={(event) => {
+              typed.current = true;
+              setQuery(event.target.value);
+            }}
           />
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             閉じる
