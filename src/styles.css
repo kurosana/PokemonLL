@@ -1002,16 +1002,16 @@ select.input {
 }
 
 .league-choice.shield-pin-toggle {
-  min-width: 1.77rem;
-  min-height: 1.44rem;
-  padding: 0.08rem 0.22rem;
+  min-width: 1.95rem;
+  min-height: 1.58rem;
+  padding: 0.09rem 0.24rem;
   color: var(--accent-deep);
 }
 
 .shield-pin-toggle svg {
   display: block;
-  width: 0.77rem;
-  height: 0.77rem;
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .shield-dock {
@@ -1042,10 +1042,18 @@ select.input {
 
 .league-choice.shield-pin-toggle.is-dock {
   position: absolute;
-  top: 50%;
+  top: 0;
   right: 0;
   z-index: 2;
-  transform: translate(62%, -50%);
+  min-width: 2.12rem;
+  min-height: 1.73rem;
+  padding: 0.1rem 0.26rem;
+  transform: translate(12%, -58%);
+}
+
+.shield-pin-toggle.is-dock svg {
+  width: 0.92rem;
+  height: 0.92rem;
 }
 
 .shield-grid {
@@ -1136,14 +1144,14 @@ select.input {
 
 .sim-result-shadows .league-choice.sim-shadow-toggle {
   pointer-events: auto;
-  min-width: 2.12rem;
-  min-height: 1.72rem;
-  padding: 0.12rem 0.32rem;
+  min-width: 2.33rem;
+  min-height: 1.89rem;
+  padding: 0.13rem 0.35rem;
 }
 
 .sim-result-shadows .sim-shadow-mark {
-  width: 1.08rem;
-  height: 1.08rem;
+  width: 1.19rem;
+  height: 1.19rem;
 }
 
 .sim-result .sim-matchup {
@@ -1476,7 +1484,7 @@ select.input {
 
 @media (max-width: 640px) {
   .shield-dock {
-    width: min(var(--max), calc(100% - 3.4rem));
+    width: min(var(--max), calc(100% - 28px));
   }
 
   .home-intro .btn-primary,

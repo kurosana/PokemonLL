@@ -375,7 +375,7 @@ function ShieldGridView({
             aria-label={pinned ? "画面固定を外す" : "画面下部に固定"}
             onClick={onTogglePin}
           >
-            <Pin size={12} aria-hidden="true" />
+            <Pin size={13} aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -386,7 +386,7 @@ function ShieldGridView({
           aria-label="画面固定を外す"
           onClick={onTogglePin}
         >
-          <Pin size={12} aria-hidden="true" />
+          <Pin size={14} aria-hidden="true" />
         </button>
       )}
       <div className="shield-grid" role="grid" aria-label="シールド評価">
