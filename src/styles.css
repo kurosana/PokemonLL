@@ -1098,6 +1098,21 @@ select.input {
   max-width: 100%;
 }
 
+.battle-sheet .move-label.has-cct {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.04rem;
+}
+
+.battle-sheet .move-line-main {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  justify-content: center;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
 .battle-sheet .move.is-stacked {
   height: auto;
   line-height: 1.15;
@@ -1110,15 +1125,6 @@ select.input {
   align-items: center;
   gap: 0;
   line-height: 1.15;
-}
-
-.battle-sheet .move-line {
-  display: inline-flex;
-  gap: 0.3rem;
-  align-items: baseline;
-  justify-content: center;
-  max-width: 100%;
-  white-space: nowrap;
 }
 
 .battle-sheet .cct-mark {
@@ -1143,10 +1149,38 @@ select.input {
   font-weight: 700;
 }
 
-.battle-sheet .move-guard,
-.battle-sheet .move.is-guard {
-  color: #1f5fa8;
+.battle-sheet .move.is-guard .sozai-shield,
+.battle-sheet .move-label.is-stacked .sozai-shield {
+  display: block;
+  margin: 0 auto;
+}
+
+.sozai-shield {
+  display: block;
+  width: auto;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.sim-shadow-mark {
+  display: block;
+  width: 1.35rem;
+  height: 1.35rem;
+  object-fit: contain;
+}
+
+.shield-head .sozai-shield {
+  width: 0.92rem;
+  height: auto;
+}
+
+.sim-section-label {
+  margin: 0.45rem 0 0.2rem;
+  padding: 0 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
   font-weight: 800;
+  text-align: left;
 }
 
 .battle-sheet tr.has-charge > td,
@@ -2368,11 +2402,7 @@ select.input {
 .sim-shadow-toggle {
   min-width: 2.65rem;
   min-height: 2.15rem;
-  padding: 0.2rem 0.55rem;
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--accent-deep);
+  padding: 0.18rem 0.45rem;
 }
 
 .sim-power-line {
@@ -2417,6 +2447,16 @@ select.input {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.35rem;
+}
+
+.sim-card .sim-ivs .field {
+  align-items: center;
+  text-align: center;
+}
+
+.sim-card .sim-ivs .field-label {
+  justify-content: center;
+  width: 100%;
 }
 
 .sim-card .input {
@@ -2560,10 +2600,15 @@ select.input {
   width: 100%;
 }
 
+.sim-matchup-side > .hp-track:not(.hp-track-hit) {
+  margin-bottom: 0.1rem;
+}
+
 .sim-hit-list {
   width: 100%;
-  margin: 0.35rem 0 0;
-  padding: 0;
+  margin: 0.55rem 0 0;
+  padding: 0.4rem 0 0;
+  border-top: 1px solid rgba(28, 45, 62, 0.1);
   list-style: none;
   display: grid;
   gap: 0.35rem;
@@ -2600,7 +2645,9 @@ select.input {
 }
 
 .sim-matchup-side .hp-track-hit {
+  width: 80%;
   height: 8px;
+  margin-right: auto;
 }
 
 @media (max-width: 640px) {
