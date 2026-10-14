@@ -981,16 +981,16 @@ select.input {
 }
 
 .shield-panel {
-  gap: 0.55rem;
-  padding: 0.85rem 0.9rem 0.75rem;
+  gap: 0.32rem;
+  padding: 0.55rem 0.75rem 0.55rem;
 }
 
 .shield-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  min-height: 2.15rem;
+  gap: 0.4rem;
+  min-height: 0;
 }
 
 .shield-panel-title {
@@ -1001,17 +1001,17 @@ select.input {
   line-height: 1.2;
 }
 
-.shield-pin-toggle {
-  min-width: 2.65rem;
-  min-height: 2.15rem;
-  padding: 0.18rem 0.45rem;
+.league-choice.shield-pin-toggle {
+  min-width: 1.77rem;
+  min-height: 1.44rem;
+  padding: 0.08rem 0.22rem;
   color: var(--accent-deep);
 }
 
 .shield-pin-toggle svg {
   display: block;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 0.77rem;
+  height: 0.77rem;
 }
 
 .shield-dock {
@@ -1021,10 +1021,13 @@ select.input {
   bottom: 0;
   width: min(var(--max), calc(100% - 40px));
   transform: translateX(-50%);
+  overflow: visible;
   pointer-events: none;
 }
 
 .shield-dock .shield-panel {
+  position: relative;
+  overflow: visible;
   pointer-events: auto;
   margin: 0;
   border-bottom-right-radius: 0;
@@ -1034,7 +1037,15 @@ select.input {
 
 .shield-panel.is-dock-only {
   gap: 0;
-  padding: 0.55rem 0.65rem calc(0.45rem + env(safe-area-inset-bottom));
+  padding: 0.45rem 0.55rem calc(0.4rem + env(safe-area-inset-bottom));
+}
+
+.league-choice.shield-pin-toggle.is-dock {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 2;
+  transform: translate(62%, -50%);
 }
 
 .shield-grid {
@@ -1105,18 +1116,8 @@ select.input {
 }
 
 .battle-sheet-panel {
-  padding: 0.55rem 0.65rem 0.45rem;
-  gap: 0.35rem;
-}
-
-.battle-sheet-heading {
-  margin: 0;
-  padding: 0 0.1rem;
-  color: var(--accent-deep);
-  font-size: 0.9rem;
-  font-weight: 800;
-  line-height: 1.2;
-  text-align: left;
+  padding: 0.4rem;
+  gap: 0;
 }
 
 .sim-result {
@@ -1133,8 +1134,16 @@ select.input {
   pointer-events: none;
 }
 
-.sim-result-shadows .sim-shadow-toggle {
+.sim-result-shadows .league-choice.sim-shadow-toggle {
   pointer-events: auto;
+  min-width: 2.12rem;
+  min-height: 1.72rem;
+  padding: 0.12rem 0.32rem;
+}
+
+.sim-result-shadows .sim-shadow-mark {
+  width: 1.08rem;
+  height: 1.08rem;
 }
 
 .sim-result .sim-matchup {
@@ -1467,7 +1476,7 @@ select.input {
 
 @media (max-width: 640px) {
   .shield-dock {
-    width: min(var(--max), calc(100% - 28px));
+    width: min(var(--max), calc(100% - 3.4rem));
   }
 
   .home-intro .btn-primary,
