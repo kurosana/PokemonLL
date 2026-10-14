@@ -19,6 +19,7 @@ export function IvBars({
   buddy,
   onBuddy,
   onChange,
+  showBuddy = true,
 }: {
   atk: number;
   def: number;
@@ -26,12 +27,15 @@ export function IvBars({
   buddy: boolean;
   onBuddy: (buddy: boolean) => void;
   onChange: (next: { atk: number; def: number; sta: number }) => void;
+  showBuddy?: boolean;
 }) {
   return (
     <div className="iv-bars">
-      <button type="button" className="buddy-toggle" aria-pressed={buddy} onClick={() => onBuddy(!buddy)}>
-        相棒
-      </button>
+      {showBuddy ? (
+        <button type="button" className="buddy-toggle" aria-pressed={buddy} onClick={() => onBuddy(!buddy)}>
+          相棒
+        </button>
+      ) : null}
       <IvBar label="攻撃" value={atk} onChange={(value) => onChange({ atk: value, def, sta })} />
       <IvBar label="防御" value={def} onChange={(value) => onChange({ atk, def: value, sta })} />
       <IvBar label="HP" value={sta} onChange={(value) => onChange({ atk, def, sta: value })} />
