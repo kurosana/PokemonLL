@@ -641,6 +641,7 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
     return <td className="move is-empty" />;
   }
   const stacked = guard;
+  const longCct = Boolean(cell.cct && !stacked && cell.span === 1 && cell.name.length >= 6);
   const moveMain = (
     <span className="move-line-main">
       {cell.name ? <span className="move-name">{cell.name}</span> : null}
@@ -649,7 +650,7 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
   );
   return (
     <td
-      className={`move${cell.endsCharge ? " ends-charge" : ""}${stacked ? " is-stacked" : ""}`}
+      className={`move${cell.endsCharge ? " ends-charge" : ""}${stacked ? " is-stacked" : ""}${longCct ? " is-long-cct" : ""}`}
       rowSpan={cell.span}
       style={cell.name ? { background: typeWash(cell.type) } : undefined}
     >
@@ -662,7 +663,7 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
           </span>
         </span>
       ) : (
-        <span className={`move-label${cell.cct ? " has-cct" : ""}`}>
+        <span className={`move-label${cell.cct ? " has-cct" : ""}${longCct ? " is-long" : ""}`}>
           {moveMain}
           {cell.cct ? <span className="cct-mark">CCT</span> : null}
         </span>
