@@ -2513,6 +2513,103 @@ select.input {
   width: 100%;
 }
 
+.sim-card .iv-open {
+  text-align: center;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sim-iv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  align-items: start;
+  justify-content: center;
+  padding: 8vh 0.6rem 1rem;
+}
+
+.sim-iv-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(26, 39, 51, 0.45);
+}
+
+.sim-iv-panel {
+  position: relative;
+  width: min(34rem, 100%);
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.75rem 0.7rem 0.8rem;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.sim-iv-top {
+  display: grid;
+  grid-template-columns: 3.6rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.sim-iv-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sim-iv-preset {
+  min-height: 2.15rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface);
+  color: var(--accent-deep);
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sim-iv-preset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.sim-iv-body {
+  display: grid;
+  grid-template-columns: 4.4rem minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: start;
+}
+
+.sim-iv-levels {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sim-iv-level {
+  min-width: 0;
+  min-height: 2.35rem;
+  padding: 0.2rem 0.3rem;
+  font-weight: 800;
+}
+
+.sim-iv-panel .iv-bars {
+  gap: 0.45rem;
+  padding: 0;
+}
+
+.sim-iv-panel .iv-bar-block {
+  grid-template-columns: 3.4rem minmax(0, 1fr);
+}
+
+.sim-iv-ok {
+  justify-self: end;
+  min-width: 4.5rem;
+}
+
 .sim-card .input {
   min-height: 2.75rem;
 }

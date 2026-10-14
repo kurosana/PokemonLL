@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ArrowLeft } from "lucide-react";
 import { LeagueIconButton } from "../../components/LeagueIconButton";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
@@ -13,11 +13,14 @@ import {
   leagueCap,
   leagueConfigs,
   speciesDisplayName,
+  withBuddyLevels,
   type LeagueId,
   type PogoStatRecord,
+  type RankingRow,
   type SpeciesGroup,
 } from "../../lib/pogo/research";
 import { simulateBattle, simulateShieldGrid, type ChargeTiming, type FighterInput, type TimelineEvent } from "../../lib/pogo/simulate";
+import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
 
@@ -51,6 +54,8 @@ type SideState = {
   atkIv: number;
   defIv: number;
   staIv: number;
+  /** 51 は相棒ボーナスあり。シミュの初期値。 */
+  maxLevel: 50 | 51;
   fastId: string;
   chargedId: string;
   chargedId2: string;
@@ -68,6 +73,7 @@ const emptySide: SideState = {
   atkIv: 0,
   defIv: 15,
   staIv: 15,
+  maxLevel: 51,
   fastId: "",
   chargedId: "",
   chargedId2: "",
@@ -76,9 +82,23 @@ const emptySide: SideState = {
   applyChanceBuffs: false,
 };
 
-function clampIv(value: number) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.min(15, Math.max(0, Math.round(value)));
+function levelScale(
+  cpData: { levels: number[]; byLevel: Map<string, number> },
+  maxLevel: 50 | 51,
+) {
+  const scaled = maxLevel === 51 ? withBuddyLevels(cpData, true) : cpData;
+  return {
+    levels: scaled.levels.filter((level) => level <= maxLevel + 1e-9),
+    byLevel: scaled.byLevel,
+  };
+}
+
+function pickStatMax(rows: RankingRow[], key: "attack" | "defense" | "stamina") {
+  return rows.reduce<RankingRow | null>((best, row) => {
+    if (!best || row[key] > best[key] + 1e-6) return row;
+    if (Math.abs(row[key] - best[key]) <= 1e-6 && row.rank < best.rank) return row;
+    return best;
+  }, null);
 }
 
 export function SimResearchPage() {
@@ -297,7 +317,8 @@ function packFighter(
   const charged = [side.chargedId, side.chargedId2]
     .map((id) => chargedMoves.find((move) => move.id === id) ?? null)
     .filter((move): move is PvpMove => Boolean(move));
-  const build = findMaxLevelBuild(entry, side.atkIv, side.defIv, side.staIv, cpData.levels, cpData.byLevel, cap);
+  const scale = levelScale(cpData, side.maxLevel);
+  const build = findMaxLevelBuild(entry, side.atkIv, side.defIv, side.staIv, scale.levels, scale.byLevel, cap);
   if (!build) return null;
   const input: FighterInput = {
     label: side.label || entry.pokemon_name,
@@ -378,7 +399,8 @@ function FighterCard({
             const types = pvp?.types ?? [];
             const rankedFast = bestMoves(nextFasts, types, "fast");
             const rankedCharged = bestMoves(nextCharged, types, "charged");
-            const best = computeBestRankings(entry, levels, byLevel, cap)[0];
+            const scale = levelScale({ levels, byLevel }, 51);
+            const best = computeBestRankings(entry, scale.levels, scale.byLevel, cap, 51)[0];
             onChange((current) => ({
               ...current,
               record: entry,
@@ -388,6 +410,7 @@ function FighterCard({
               fastId: rankedFast[0]?.id ?? "",
               chargedId: rankedCharged[0]?.id ?? "",
               chargedId2: rankedCharged[1]?.id ?? "",
+              maxLevel: 51,
               atkIv: best?.atkIv ?? current.atkIv,
               defIv: best?.defIv ?? current.defIv,
               staIv: best?.staIv ?? current.staIv,
@@ -438,11 +461,13 @@ function FighterCard({
 
       {side.record ? (
         <>
-      <div className="sim-ivs">
-        <IvBox label="攻撃" value={side.atkIv} onChange={(atkIv) => onChange({ ...side, atkIv })} />
-        <IvBox label="防御" value={side.defIv} onChange={(defIv) => onChange({ ...side, defIv })} />
-        <IvBox label="HP" value={side.staIv} onChange={(staIv) => onChange({ ...side, staIv })} />
-      </div>
+      <IvFields
+        side={side}
+        cap={cap}
+        levels={levels}
+        byLevel={byLevel}
+        onChange={onChange}
+      />
 
       <label className="field">
         <span className="field-label">ノーマルアタック</span>
@@ -851,19 +876,160 @@ function typeWash(type: string) {
   return `color-mix(in srgb, ${typePastel(type)} 51%, white)`;
 }
 
-function IvBox({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+function IvFields({
+  side,
+  cap,
+  levels,
+  byLevel,
+  onChange,
+}: {
+  side: SideState;
+  cap: number;
+  levels: number[];
+  byLevel: Map<string, number>;
+  onChange: (next: SideState | ((current: SideState) => SideState)) => void;
+}) {
+  const [open, setOpen] = useState(false);
   return (
-    <label className="field">
-      <span className="field-label">{label}</span>
-      <input
-        className="input iv-input"
-        type="number"
-        min={0}
-        max={15}
-        inputMode="numeric"
-        value={value}
-        onChange={(event) => onChange(clampIv(Number(event.target.value)))}
-      />
-    </label>
+    <>
+      <div className="sim-ivs">
+        {(
+          [
+            ["攻撃", side.atkIv],
+            ["防御", side.defIv],
+            ["HP", side.staIv],
+          ] as const
+        ).map(([label, value]) => (
+          <div key={label} className="field">
+            <span className="field-label">{label}</span>
+            <button type="button" className="input iv-open num" onClick={() => setOpen(true)}>
+              {value}
+            </button>
+          </div>
+        ))}
+      </div>
+      {open && side.record ? (
+        <IvPopup
+          side={side}
+          cap={cap}
+          levels={levels}
+          byLevel={byLevel}
+          onClose={() => setOpen(false)}
+          onApply={(next) => {
+            onChange({ ...side, ...next });
+            setOpen(false);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function IvPopup({
+  side,
+  cap,
+  levels,
+  byLevel,
+  onClose,
+  onApply,
+}: {
+  side: SideState;
+  cap: number;
+  levels: number[];
+  byLevel: Map<string, number>;
+  onClose: () => void;
+  onApply: (next: { atkIv: number; defIv: number; staIv: number; maxLevel: 50 | 51 }) => void;
+}) {
+  const [draftLevel, setDraftLevel] = useState<50 | 51>(side.maxLevel);
+  const [draft, setDraft] = useState({ atk: side.atkIv, def: side.defIv, sta: side.staIv });
+  const presets = useMemo(() => {
+    if (!side.record) return null;
+    const scale = levelScale({ levels, byLevel }, draftLevel);
+    const rows = computeBestRankings(side.record, scale.levels, scale.byLevel, cap, draftLevel);
+    if (!rows.length) return null;
+    return {
+      scp: rows[0],
+      attack: pickStatMax(rows, "attack"),
+      defense: pickStatMax(rows, "defense"),
+      hp: pickStatMax(rows, "stamina"),
+    };
+  }, [byLevel, cap, draftLevel, levels, side.record]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const applyPreset = (row: RankingRow | null) => {
+    if (!row) return;
+    onApply({ atkIv: row.atkIv, defIv: row.defIv, staIv: row.staIv, maxLevel: draftLevel });
+  };
+
+  return (
+    <div className="sim-iv-overlay" role="dialog" aria-modal="true" aria-label="個体値">
+      <button type="button" className="sim-iv-backdrop" aria-label="閉じる" onClick={onClose} />
+      <div className="sim-iv-panel">
+        <div className="sim-iv-top">
+          {side.record ? (
+            <PokemonDotSprite
+              pokemonId={side.record.pokemon_id}
+              form={side.exactSprite ? undefined : side.record.form}
+              exact={side.exactSprite}
+              spriteSuffix={side.spriteSuffix}
+              alt=""
+              size={56}
+            />
+          ) : null}
+          <div className="sim-iv-presets">
+            <button type="button" className="sim-iv-preset" disabled={!presets?.scp} onClick={() => applyPreset(presets?.scp ?? null)}>
+              SCP1位
+            </button>
+            <button type="button" className="sim-iv-preset" disabled={!presets?.attack} onClick={() => applyPreset(presets?.attack ?? null)}>
+              2桁A大
+            </button>
+            <button type="button" className="sim-iv-preset" disabled={!presets?.defense} onClick={() => applyPreset(presets?.defense ?? null)}>
+              2桁B大
+            </button>
+            <button type="button" className="sim-iv-preset" disabled={!presets?.hp} onClick={() => applyPreset(presets?.hp ?? null)}>
+              2桁H大
+            </button>
+          </div>
+        </div>
+        <div className="sim-iv-body">
+          <div className="sim-iv-levels" role="group" aria-label="レベル上限">
+            {([50, 51] as const).map((level) => (
+              <button
+                key={level}
+                type="button"
+                className="league-choice sim-iv-level"
+                aria-pressed={draftLevel === level}
+                onClick={() => setDraftLevel(level)}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+          <IvBars
+            atk={draft.atk}
+            def={draft.def}
+            sta={draft.sta}
+            buddy={draftLevel === 51}
+            showBuddy={false}
+            onBuddy={() => undefined}
+            onChange={setDraft}
+          />
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary sim-iv-ok"
+          onClick={() => onApply({ atkIv: draft.atk, defIv: draft.def, staIv: draft.sta, maxLevel: draftLevel })}
+        >
+          OK
+        </button>
+      </div>
+    </div>
   );
 }
