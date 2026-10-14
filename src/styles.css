@@ -2148,6 +2148,19 @@ select.input {
   background: var(--surface);
 }
 
+.search-overlay.is-centered {
+  align-items: center;
+  padding: max(1rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+}
+
+.search-overlay.is-centered .search-overlay-panel {
+  align-self: center;
+  max-height: min(100dvh - 2rem, 44rem);
+  padding: 0.85rem 1rem 1rem;
+  border-radius: 12px;
+}
+
 .search-overlay-bar {
   display: flex;
   gap: 8px;

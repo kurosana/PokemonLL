@@ -973,7 +973,7 @@ function IvPopup({
   };
 
   return (
-    <div className="search-overlay" role="dialog" aria-modal="true" aria-label="個体値">
+    <div className="search-overlay is-centered" role="dialog" aria-modal="true" aria-label="個体値">
       <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
       <div className="search-overlay-panel sim-iv-panel">
         <div className="sim-iv-top">
