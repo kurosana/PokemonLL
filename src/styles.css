@@ -1390,8 +1390,8 @@ select.input {
 }
 
 .battle-sheet tr.has-charge > td {
-  height: 1.46rem;
-  min-height: 1.46rem;
+  height: 1.83rem;
+  min-height: 1.83rem;
 }
 
 .battle-sheet td.move.is-charged {
@@ -3074,14 +3074,14 @@ button.shield-corner.is-selected {
   align-items: center;
   justify-content: center;
   max-width: 100%;
-  min-height: 1.22rem;
+  min-height: 1.55rem;
   margin: 0;
-  padding: 0.08rem 0.42rem;
+  padding: 0.12rem 0.55rem;
   border: 0;
   border-radius: 0.7rem;
   color: #1a2733;
   font: inherit;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 800;
   line-height: 1.1;
   cursor: pointer;
@@ -3090,12 +3090,18 @@ button.shield-corner.is-selected {
     0 1px 1px rgba(28, 45, 62, 0.18);
 }
 
-.search-overlay-panel.sim-plan-panel {
-  width: min(24rem, calc(100% - 1.5rem));
+.search-overlay.is-centered .search-overlay-panel.sim-plan-panel {
+  width: min(24rem, calc(100dvw - 1.5rem));
+  min-width: min(24rem, calc(100dvw - 1.5rem));
   max-height: min(100dvh, 40rem);
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0.75rem;
   overflow: auto;
+}
+
+.search-overlay.is-centered .search-overlay-panel.sim-move-panel {
+  width: min(26rem, calc(100dvw - 1.5rem));
+  min-width: min(26rem, calc(100dvw - 1.5rem));
 }
 
 .sim-plan-list,
@@ -3132,8 +3138,9 @@ button.shield-corner.is-selected {
   text-align: center;
 }
 
-.search-overlay-panel.sim-shield-panel {
-  width: min(42rem, 100%);
+.search-overlay.is-centered .search-overlay-panel.sim-shield-panel {
+  width: min(40rem, calc(100dvw - 1.5rem));
+  min-width: min(40rem, calc(100dvw - 1.5rem));
   padding: 0;
   gap: 0;
   overflow: hidden;
