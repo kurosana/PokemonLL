@@ -3125,23 +3125,57 @@ button.shield-corner.is-selected {
 }
 
 .sim-throw-buff {
-  display: grid;
-  gap: 0.22rem;
-  justify-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
 }
 
-.sim-throw-buff .league-choice.timeline-op {
-  justify-self: start;
+.sim-throw-buff-btn.league-choice.timeline-op {
+  flex: 0 0 auto;
+  min-height: 2.45rem;
+  min-width: 7.75rem;
+  padding: 0.32rem 0.95rem;
+  font-size: 0.86rem;
 }
 
 .sim-throw-buff-note {
+  flex: 1 1 8rem;
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sim-throw-buff-line {
+  display: grid;
+  grid-template-columns: 3.25rem 2.35rem auto;
+  gap: 0.45rem;
+  align-items: center;
   margin: 0;
-  max-width: 100%;
-  color: #5d6b78;
-  font-size: 0.72rem;
+  color: #31404c;
+  font-size: 0.74rem;
   font-weight: 700;
-  line-height: 1.35;
-  text-align: right;
+  line-height: 1.25;
+}
+
+.sim-throw-buff-line.is-empty {
+  grid-template-columns: auto;
+}
+
+.sim-throw-buff-chance {
+  color: #5d6b78;
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-throw-buff-stage {
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.sim-throw-buff-none {
+  color: #5d6b78;
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .sim-damage-field {

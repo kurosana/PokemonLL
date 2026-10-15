@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
+import type { MoveBonusEffectLine } from "../../lib/pogo/moveBonusEffect";
 import type { PvpMove } from "../../lib/pogo/combat";
 import type { ChargeTiming, TimelineEvent } from "../../lib/pogo/simulate";
 import type { SideState } from "./SimResearchPage";
@@ -310,14 +311,14 @@ export function ThrowPopup({
   side,
   index,
   moveName,
-  effectText,
+  effectLines,
   onClose,
   onChange,
 }: {
   side: SideState;
   index: number;
   moveName: string;
-  effectText: string;
+  effectLines: MoveBonusEffectLine[];
   onClose: () => void;
   onChange: (next: SideState) => void;
 }) {
@@ -359,7 +360,7 @@ export function ThrowPopup({
         <div className="sim-throw-buff">
           <button
             type="button"
-            className="league-choice timeline-op"
+            className="league-choice timeline-op sim-throw-buff-btn"
             aria-pressed={tweak.buff}
             onClick={() => {
               const value = readDamageDraft(draft);
@@ -369,7 +370,21 @@ export function ThrowPopup({
           >
             追加効果
           </button>
-          <p className="sim-throw-buff-note">追加効果：{effectText}</p>
+          <div className="sim-throw-buff-note" aria-label="追加効果の内容">
+            {effectLines.length ? (
+              effectLines.map((line, lineIndex) => (
+                <p key={`${lineIndex}-${line.kind}-${line.stage}`} className="sim-throw-buff-line">
+                  <span className="sim-throw-buff-chance">{line.chance}</span>
+                  <span className="sim-throw-buff-kind">{line.kind}</span>
+                  <span className="sim-throw-buff-stage">{line.stage}</span>
+                </p>
+              ))
+            ) : (
+              <p className="sim-throw-buff-line is-empty">
+                <span className="sim-throw-buff-none">なし</span>
+              </p>
+            )}
+          </div>
         </div>
         <label className="field sim-damage-field">
           <span>ダメージ</span>
