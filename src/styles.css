@@ -2975,8 +2975,132 @@ select.input {
   font-weight: 800;
 }
 
-.sim-matchup .hp-track {
+.sim-gauge {
+  margin: 0.28rem 0 0;
+  color: #1a2733;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.timeline-ops {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0.15rem 0 0.2rem;
+}
+
+.timeline-ops-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.timeline-ops-side {
+  min-width: 0;
+}
+
+.timeline-ops-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.timeline-ops-choices.is-end,
+.timeline-ops-side.is-end .timeline-ops-choices {
+  justify-content: flex-end;
+}
+
+.timeline-ops-label {
+  margin: 0;
+  color: var(--accent-deep);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.timeline-ops .league-choice.timeline-op,
+.sim-plan-panel .league-choice.timeline-op,
+.sim-plan-panel .league-choice.sim-shield-pick {
+  min-width: 0;
+  min-height: 1.9rem;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+button.shield-corner {
   width: 100%;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+button.shield-corner.is-selected {
+  box-shadow: inset 0 0 0 3px #f0c84a;
+}
+
+.battle-sheet .move-charge-btn {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 0.28rem;
+  border: 1px solid rgba(28, 45, 62, 0.28);
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.78);
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.search-overlay-panel.sim-plan-panel {
+  width: min(24rem, calc(100% - 1.5rem));
+  max-height: min(100dvh, 40rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  overflow: auto;
+}
+
+.sim-plan-list,
+.sim-shield-picks {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.sim-shield-picks {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sim-shield-pick {
+  display: grid;
+  gap: 0.1rem;
+  min-height: 2.6rem;
+}
+
+.sim-damage-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.sim-damage-input {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sim-damage-input .input {
+  width: 5rem;
+}
+
+.sim-throw-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
 }
 
 .sim-matchup-side > .hp-track:not(.hp-track-hit) {
