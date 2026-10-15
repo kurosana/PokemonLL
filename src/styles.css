@@ -1168,14 +1168,14 @@ select.input {
 
 .sim-result-shadows .league-choice.sim-shadow-toggle {
   pointer-events: auto;
-  min-width: 2.33rem;
-  min-height: 1.89rem;
-  padding: 0.13rem 0.35rem;
+  min-width: calc(2.33rem * 1.1);
+  min-height: calc(1.89rem * 1.1);
+  padding: calc(0.13rem * 1.1) calc(0.35rem * 1.1);
 }
 
 .sim-result-shadows .sim-shadow-mark {
-  width: 1.19rem;
-  height: 1.19rem;
+  width: calc(1.19rem * 1.1);
+  height: calc(1.19rem * 1.1);
 }
 
 .sim-result .sim-matchup {
@@ -3282,29 +3282,13 @@ button.shield-corner.is-selected {
 }
 
 .sim-throw-buff-line {
-  display: grid;
-  grid-template-columns: 3.25rem 2.35rem auto;
-  gap: 0.45rem;
-  align-items: center;
   margin: 0;
   color: #31404c;
   font-size: 0.74rem;
   font-weight: 700;
   line-height: 1.25;
-}
-
-.sim-throw-buff-line.is-empty {
-  grid-template-columns: auto;
-}
-
-.sim-throw-buff-chance {
-  color: #5d6b78;
   font-variant-numeric: tabular-nums;
-}
-
-.sim-throw-buff-stage {
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .sim-throw-buff-none {
