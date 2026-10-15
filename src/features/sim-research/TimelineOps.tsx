@@ -226,7 +226,7 @@ export function PlanPopup({
     <div className="search-overlay is-centered" role="dialog" aria-modal="true" aria-label={kind === "move" ? "技選択" : "シールドカスタム設定"}>
       <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
       {kind === "move" ? (
-        <div className="search-overlay-panel sim-plan-panel">
+        <div className="search-overlay-panel sim-plan-panel sim-move-panel">
           <h2 className="shield-panel-title">技選択</h2>
           <div className="sim-plan-list">
             {PLAN_LABELS.map((label, index) => (
