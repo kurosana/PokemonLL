@@ -28,6 +28,7 @@ import {
   type SimResult,
   type TimelineEvent,
 } from "../../lib/pogo/simulate";
+import { TimelineOps, PlanPopup, ThrowPopup, chargedNameAt } from "./TimelineOps";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
@@ -53,7 +54,7 @@ function ShieldMark({ size = 16 }: { size?: number }) {
   );
 }
 
-type SideState = {
+export type SideState = {
   record: PogoStatRecord | null;
   label: string;
   exactSprite: boolean;
@@ -69,6 +70,13 @@ type SideState = {
   chargedId2: string;
   shields: number;
   timing: ChargeTiming;
+  moveMode: "optimal" | "custom";
+  /** 6回まで。null はその回を打たない。 */
+  moveSlots: (string | null)[];
+  shieldMode: "optimal" | "custom";
+  /** 受けるスペシャルの何発目を防ぐか。最大2。 */
+  shieldSlots: number[];
+  throwTweaks: ({ buff: boolean; damagePercent: number } | null)[];
   applyChanceBuffs: boolean;
 };
 
@@ -87,8 +95,44 @@ const emptySide: SideState = {
   chargedId2: "",
   shields: 0,
   timing: "cct",
+  moveMode: "optimal",
+  moveSlots: [null, null, null, null, null, null],
+  shieldMode: "optimal",
+  shieldSlots: [],
+  throwTweaks: [null, null, null, null, null, null],
   applyChanceBuffs: false,
 };
+
+function blankSlots() {
+  return [null, null, null, null, null, null] as (string | null)[];
+}
+
+function blankTweaks() {
+  return [null, null, null, null, null, null] as ({ buff: boolean; damagePercent: number } | null)[];
+}
+
+function clearPlans(side: SideState): SideState {
+  return {
+    ...side,
+    moveMode: "optimal",
+    moveSlots: blankSlots(),
+    shieldMode: "optimal",
+    shieldSlots: [],
+    throwTweaks: blankTweaks(),
+  };
+}
+
+function samePokemon(a: PogoStatRecord | null, b: PogoStatRecord | null) {
+  return a?.pokemon_id === b?.pokemon_id && a?.form === b?.form;
+}
+
+function moveShieldSlot(slots: number[], index: number) {
+  if (slots.includes(index)) return slots.filter((slot) => slot !== index).sort((a, b) => a - b);
+  if (slots.length < 2) return [...slots, index].sort((a, b) => a - b);
+  const earlier = Math.min(...slots);
+  if (earlier === index) return slots;
+  return [earlier, index].sort((a, b) => a - b);
+}
 
 function levelScale(
   cpData: { levels: number[]; byLevel: Map<string, number> },
@@ -117,12 +161,15 @@ export function SimResearchPage() {
   const [sideA, setSideA] = useState<SideState>(emptySide);
   const [sideB, setSideB] = useState<SideState>(emptySide);
   const [shieldPinned, setShieldPinned] = useState(false);
+  const [shieldCustomActive, setShieldCustomActive] = useState(false);
+  const [planEditor, setPlanEditor] = useState<null | { kind: "move" | "shield"; side: "a" | "b" }>(null);
+  const [throwEditor, setThrowEditor] = useState<null | { side: "a" | "b"; index: number }>(null);
   const inlinePinRef = useRef<HTMLButtonElement>(null);
   const dockObserver = useRef<ResizeObserver | null>(null);
 
   const cap = leagueCap(leagueId);
-  const fighterA = packFighter(sideA, data, cpData, cap);
-  const fighterB = packFighter(sideB, data, cpData, cap);
+  const fighterA = packFighter(sideA, data, cpData, cap, shieldCustomActive);
+  const fighterB = packFighter(sideB, data, cpData, cap, shieldCustomActive);
 
   const result = useMemo(() => {
     if (!fighterA || !fighterB) return null;
@@ -135,8 +182,28 @@ export function SimResearchPage() {
   }, [fighterA, fighterB]);
 
   const selectShields = (shieldsA: number, shieldsB: number) => {
-    setSideA((current) => (current.shields === shieldsA ? current : { ...current, shields: shieldsA }));
-    setSideB((current) => (current.shields === shieldsB ? current : { ...current, shields: shieldsB }));
+    setShieldCustomActive(false);
+    setSideA((current) => ({ ...current, shields: shieldsA, shieldMode: "optimal" }));
+    setSideB((current) => ({ ...current, shields: shieldsB, shieldMode: "optimal" }));
+  };
+
+  const selectShieldCustom = () => {
+    setShieldCustomActive(true);
+    setSideA((current) => ({ ...current, shieldMode: "custom", shields: current.shieldSlots.length }));
+    setSideB((current) => ({ ...current, shieldMode: "custom", shields: current.shieldSlots.length }));
+  };
+
+  const changeSide = (which: "a" | "b", next: SideState | ((current: SideState) => SideState)) => {
+    const apply = (current: SideState) => (typeof next === "function" ? next(current) : next);
+    const setThis = which === "a" ? setSideA : setSideB;
+    const setOther = which === "a" ? setSideB : setSideA;
+    setThis((current) => {
+      const resolved = apply(current);
+      if (samePokemon(current.record, resolved.record)) return resolved;
+      setShieldCustomActive(false);
+      setOther((other) => clearPlans(other));
+      return clearPlans(resolved);
+    });
   };
 
   const toggleShieldPin = () => {
@@ -226,7 +293,7 @@ export function SimResearchPage() {
               cap={cap}
               levels={cpData.levels}
               byLevel={cpData.byLevel}
-              onChange={setSideA}
+              onChange={(next) => changeSide("a", next)}
             />
             <FighterCard
               title="相手"
@@ -236,10 +303,9 @@ export function SimResearchPage() {
               cap={cap}
               levels={cpData.levels}
               byLevel={cpData.byLevel}
-              onChange={setSideB}
+              onChange={(next) => changeSide("b", next)}
             />
           </div>
-          <p className="note">最適は相手の技に合わせます。追加効果を入れると、確率の変化も必ず起きます。</p>
 
           {result && fighterA && fighterB ? (
             <>
@@ -279,6 +345,7 @@ export function SimResearchPage() {
                     attack={fighterA.build.attack}
                     defense={fighterA.build.defense}
                     stamina={fighterA.build.stamina}
+                    energy={result.energyA}
                     hits={matchupMoveHits(fighterA.input, fighterB.input)}
                   />
                   <MatchupSide
@@ -289,6 +356,7 @@ export function SimResearchPage() {
                     attack={fighterB.build.attack}
                     defense={fighterB.build.defense}
                     stamina={fighterB.build.stamina}
+                    energy={result.energyB}
                     hits={matchupMoveHits(fighterB.input, fighterA.input)}
                   />
                 </div>
@@ -306,6 +374,8 @@ export function SimResearchPage() {
                     pinRef={inlinePinRef}
                     onTogglePin={toggleShieldPin}
                     onSelect={selectShields}
+                    customActive={shieldCustomActive}
+                    onCustom={selectShieldCustom}
                   />
                   <p className="note">マスを押すと、その枚数の結果に切り替わります。自分の枚数が縦、相手が横です。</p>
                 </div>
@@ -320,14 +390,50 @@ export function SimResearchPage() {
                     pinned={shieldPinned}
                     onTogglePin={toggleShieldPin}
                     onSelect={selectShields}
+                    customActive={shieldCustomActive}
+                    onCustom={selectShieldCustom}
                   />
                 </div>
               ) : null}
 
               <p className="sim-section-label">タイムライン</p>
+              <TimelineOps
+                sideA={sideA}
+                sideB={sideB}
+                movesA={fighterA.chargedMoves}
+                movesB={fighterB.chargedMoves}
+                timeline={result.timeline}
+                onChangeA={(next) => changeSide("a", next)}
+                onChangeB={(next) => changeSide("b", next)}
+                onEdit={setPlanEditor}
+                onUseCustomShield={() => setShieldCustomActive(true)}
+              />
               <section className="panel battle-sheet-panel">
-                <BattleSheet events={result.timeline} />
+                <BattleSheet
+                  events={result.timeline}
+                  onCharged={(side, index) => setThrowEditor({ side, index })}
+                />
               </section>
+              {planEditor ? (
+                <PlanPopup
+                  kind={planEditor.kind}
+                  side={planEditor.side === "a" ? sideA : sideB}
+                  moves={planEditor.side === "a" ? fighterA.chargedMoves : fighterB.chargedMoves}
+                  timeline={result.timeline}
+                  actor={planEditor.side}
+                  onClose={() => setPlanEditor(null)}
+                  onChange={(next) => changeSide(planEditor.side, next)}
+                />
+              ) : null}
+              {throwEditor ? (
+                <ThrowPopup
+                  side={throwEditor.side === "a" ? sideA : sideB}
+                  index={throwEditor.index}
+                  moveName={chargedNameAt(result.timeline, throwEditor.side, throwEditor.index)}
+                  onClose={() => setThrowEditor(null)}
+                  onChange={(next) => changeSide(throwEditor.side, next)}
+                />
+              ) : null}
             </>
           ) : (
             <section className="panel">
@@ -349,6 +455,8 @@ function ShieldGridView({
   pinRef,
   onTogglePin,
   onSelect,
+  customActive,
+  onCustom,
 }: {
   variant: "inline" | "dock";
   sideA: SideState;
@@ -358,6 +466,8 @@ function ShieldGridView({
   pinRef?: Ref<HTMLButtonElement>;
   onTogglePin?: () => void;
   onSelect: (shieldsA: number, shieldsB: number) => void;
+  customActive: boolean;
+  onCustom: () => void;
 }) {
   if (!sideA.record || !sideB.record) return null;
   const dockOnly = variant === "dock";
@@ -392,7 +502,13 @@ function ShieldGridView({
         </div>
       )}
       <div className="shield-grid" role="grid" aria-label="シールド評価">
-        <span className="shield-corner">
+        <button
+          type="button"
+          className={`shield-corner${customActive ? " is-selected" : ""}`}
+          aria-pressed={customActive}
+          aria-label="保存しているシールドのタイミング"
+          onClick={onCustom}
+        >
           <PokemonDotSprite
             className="corner-self"
             pokemonId={sideA.record.pokemon_id}
@@ -411,7 +527,7 @@ function ShieldGridView({
             alt=""
             size={22}
           />
-        </span>
+        </button>
         {[0, 1, 2].map((shieldsB) => (
           <span key={`h-${shieldsB}`} className="shield-head">
             <ShieldMark size={15} />
@@ -424,7 +540,7 @@ function ShieldGridView({
             <span>×{shieldsA}</span>
           </span>,
           ...row.map((cell, shieldsB) => {
-            const selected = sideA.shields === shieldsA && sideB.shields === shieldsB;
+                        const selected = !customActive && sideA.shields === shieldsA && sideB.shields === shieldsB;
             const tone = cell.rating > 100 ? "win" : cell.rating < 100 ? "lose" : "draw";
             return (
               <button
@@ -451,6 +567,7 @@ function packFighter(
   data: ReturnType<typeof useResearchData>["data"],
   cpData: ReturnType<typeof useResearchData>["cpData"],
   cap: number,
+  shieldCustomActive = false,
 ) {
   if (!data || !cpData || !side.record) return null;
   const entry = side.record;
@@ -475,9 +592,12 @@ function packFighter(
     shadow: side.shadow,
     fast,
     charged,
-    shields: side.shields,
+    shields: side.shieldMode === "custom" && shieldCustomActive ? side.shieldSlots.length : side.shields,
     timing: side.timing,
     applyChanceBuffs: side.applyChanceBuffs,
+    chargedQueue: side.moveMode === "custom" ? side.moveSlots : null,
+    shieldThrows: side.shieldMode === "custom" && shieldCustomActive ? side.shieldSlots : null,
+    throwTweaks: side.throwTweaks,
   };
   return { name: side.label || entry.pokemon_name, pvp, build, fasts, chargedMoves, input };
 }
@@ -661,6 +781,8 @@ type SheetCell = {
   shielded: boolean;
   endsCharge: boolean;
   cct: boolean;
+  charged: boolean;
+  throwIndex: number | null;
 };
 
 type TurnRow = { turn: number; hpA: number; hpB: number; a: TimelineEvent | null; b: TimelineEvent | null };
@@ -723,6 +845,8 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
         shielded: false,
         endsCharge: chargeTurns.has(turns[index].turn),
         cct: false,
+        charged: false,
+        throwIndex: null,
       });
       index += 1;
       continue;
@@ -750,6 +874,8 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
       shielded: landing?.shielded ?? false,
       endsCharge,
       cct: event.kind === "fast" && event.cct,
+      charged: event.kind === "charged",
+      throwIndex: event.throwIndex,
     });
     for (let cursor = index + 1; cursor < end; cursor += 1) {
       cells.set(turns[cursor].turn, {
@@ -761,6 +887,8 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
         shielded: false,
         endsCharge: false,
         cct: false,
+        charged: false,
+        throwIndex: null,
       });
     }
     index = end;
@@ -768,7 +896,13 @@ function moveSegments(turns: TurnRow[], actor: "a" | "b", chargeTurns: Set<numbe
   return cells;
 }
 
-function BattleSheet({ events }: { events: TimelineEvent[] }) {
+function BattleSheet({
+  events,
+  onCharged,
+}: {
+  events: TimelineEvent[];
+  onCharged: (side: "a" | "b", index: number) => void;
+}) {
   const rows = buildSheet(events);
   return (
     <table className="battle-sheet" aria-label="行動">
@@ -785,9 +919,9 @@ function BattleSheet({ events }: { events: TimelineEvent[] }) {
           return (
             <tr key={row.turn} className={row.charge ? "has-charge" : undefined}>
               <td className="hp num">{!prev || prev.hpA !== row.hpA ? row.hpA : ""}</td>
-              <MoveCell cell={row.a} guard={row.guardA} />
+              <MoveCell cell={row.a} guard={row.guardA} onCharged={(throwIndex) => onCharged("a", throwIndex)} />
               <td className="turn num">{row.turn}</td>
-              <MoveCell cell={row.b} guard={row.guardB} />
+              <MoveCell cell={row.b} guard={row.guardB} onCharged={(throwIndex) => onCharged("b", throwIndex)} />
               <td className="hp num">{!prev || prev.hpB !== row.hpB ? row.hpB : ""}</td>
             </tr>
           );
@@ -797,7 +931,15 @@ function BattleSheet({ events }: { events: TimelineEvent[] }) {
   );
 }
 
-function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
+function MoveCell({
+  cell,
+  guard,
+  onCharged,
+}: {
+  cell: SheetCell | null;
+  guard: boolean;
+  onCharged: (index: number) => void;
+}) {
   if (cell && !cell.show) return null;
   if (!cell?.name) {
     if (guard) {
@@ -815,7 +957,13 @@ function MoveCell({ cell, guard }: { cell: SheetCell | null; guard: boolean }) {
   const longCct = Boolean(cell.cct && !stacked && cell.span === 1 && cell.name.length >= 6);
   const moveMain = (
     <span className="move-line-main">
-      {cell.name ? <span className="move-name">{cell.name}</span> : null}
+      {cell.charged && cell.throwIndex != null ? (
+        <button type="button" className="move-charge-btn" onClick={() => onCharged(cell.throwIndex ?? 0)}>
+          {cell.name}
+        </button>
+      ) : cell.name ? (
+        <span className="move-name">{cell.name}</span>
+      ) : null}
       {cell.damage > 0 ? <span className="num move-dmg">{cell.damage}</span> : null}
     </span>
   );
@@ -892,6 +1040,7 @@ function MatchupSide({
   attack,
   defense,
   stamina,
+  energy,
   hits,
 }: {
   word: "WIN" | "LOSE" | null;
@@ -901,6 +1050,7 @@ function MatchupSide({
   attack: number;
   defense: number;
   stamina: number;
+  energy: number;
   hits: MatchupHitRow[];
 }) {
   const ratio = max > 0 ? hp / max : 0;
@@ -940,6 +1090,7 @@ function MatchupSide({
       <div className={`hp-track is-${band}`}>
         <i style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
       </div>
+      <p className="sim-gauge">ゲージ：{energy}</p>
       {hits.length ? (
         <ul className="sim-hit-list" aria-label="技ダメージ">
           {hits.map((row) => {
