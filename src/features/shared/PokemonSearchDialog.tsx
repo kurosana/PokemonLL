@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
+import { PokemonLabelFit } from "../../components/PokemonLabelFit";
 import { matchesNameExactly, matchesNameQuery } from "../../lib/pogo/kanaSearch";
-import { speciesDisplayName, type SpeciesGroup } from "../../lib/pogo/research";
+import { speciesDisplayName, speciesLabelParts, type SpeciesGroup } from "../../lib/pogo/research";
 
 export function PokemonSearchDialog({
   open,
@@ -126,7 +127,10 @@ export function PokemonSearchDialog({
                     size={40}
                   />
                 </span>
-                <span className="search-result-name">{speciesDisplayName(group)}</span>
+                <PokemonLabelFit
+                  className="search-result-name"
+                  {...speciesLabelParts(group)}
+                />
                 <span className="search-result-no num">No.{String(group.pokemonId).padStart(4, "0")}</span>
               </button>
             ))
