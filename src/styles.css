@@ -1147,6 +1147,8 @@ select.input {
 
 .sim-result {
   position: relative;
+  container-type: inline-size;
+  container-name: sim-result;
 }
 
 .sim-result-shadows {
@@ -2929,6 +2931,9 @@ select.input {
   display: grid;
   justify-items: center;
   gap: 0.35rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .sim-mon-block {
@@ -2936,6 +2941,7 @@ select.input {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+  min-width: 0;
   max-width: 100%;
 }
 
@@ -3380,20 +3386,122 @@ button.shield-corner.is-selected {
   height: 7px;
 }
 
-@media (max-width: 640px) {
+/* 対面パネル自体が狭く、左右が重なるときだけ全体を少し縮める */
+@container sim-result (max-width: 21rem) {
+  .sim-matchup {
+    gap: 0.35rem;
+  }
+
+  .sim-matchup-side {
+    gap: 0.28rem;
+  }
+
+  .sim-mon-block {
+    gap: 0.22rem;
+  }
+
   .sim-mon-block .pokemon-dot-sprite {
-    width: 48px;
-    height: 48px;
+    width: 52px !important;
+    height: 52px !important;
   }
 
   .sim-real-stats {
+    font-size: 0.6rem;
+  }
+
+  .sim-win {
+    min-height: 1.75rem;
+    font-size: 1.75rem;
+  }
+
+  .sim-lose {
+    font-size: 1.35rem;
+  }
+
+  .sim-draw {
+    font-size: 1.1rem;
+  }
+
+  .sim-hp-now {
+    font-size: 0.82rem;
+  }
+
+  .sim-gauge {
     font-size: 0.64rem;
   }
 
-  .sim-matchup {
-    gap: 0.45rem;
+  .sim-hit-list {
+    margin-top: 0.4rem;
+    padding-top: 0.3rem;
+    gap: 0.28rem;
   }
 
+  .sim-hit-meta {
+    gap: 0.2rem;
+    font-size: 0.6rem;
+  }
+
+  .sim-matchup-side .hp-track-hit {
+    height: 6px;
+  }
+
+  .sim-result-shadows .sim-shadow-mark {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .sim-result-shadows .league-choice.sim-shadow-toggle {
+    min-width: 2rem;
+    min-height: 1.5rem;
+    padding: 0.1rem 0.28rem;
+  }
+}
+
+@container sim-result (max-width: 17.5rem) {
+  .sim-matchup {
+    gap: 0.18rem;
+  }
+
+  .sim-matchup-side {
+    gap: 0.2rem;
+  }
+
+  .sim-mon-block .pokemon-dot-sprite {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .sim-real-stats {
+    font-size: 0.54rem;
+  }
+
+  .sim-win {
+    min-height: 1.4rem;
+    font-size: 1.42rem;
+  }
+
+  .sim-lose {
+    font-size: 1.12rem;
+  }
+
+  .sim-draw {
+    font-size: 0.98rem;
+  }
+
+  .sim-hp-now {
+    font-size: 0.7rem;
+  }
+
+  .sim-gauge {
+    font-size: 0.56rem;
+  }
+
+  .sim-hit-meta {
+    font-size: 0.54rem;
+  }
+}
+
+@media (max-width: 640px) {
   .move-columns {
     grid-template-columns: 1fr;
   }
