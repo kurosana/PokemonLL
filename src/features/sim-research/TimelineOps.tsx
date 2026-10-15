@@ -223,7 +223,7 @@ export function PlanPopup({
   const equipped = moves.filter((move, index) => moves.findIndex((other) => other.id === move.id) === index);
 
   return createPortal(
-    <div className="search-overlay is-centered" role="dialog" aria-modal="true" aria-label={kind === "move" ? "技選択" : "シールドカスタム設定"}>
+    <div className="search-overlay is-centered" role="dialog" aria-modal="true" aria-label={kind === "move" ? "技選択" : "シールド"}>
       <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
       {kind === "move" ? (
         <div className="search-overlay-panel sim-plan-panel sim-move-panel">
@@ -259,15 +259,8 @@ export function PlanPopup({
         </div>
       ) : (
         <div className="search-overlay-panel sim-shield-panel">
-          <header className="sim-shield-head">
-            <h2>シールドカスタム設定</h2>
-            <button type="button" className="sim-shield-close" aria-label="閉じる" onClick={onClose}>
-              ×
-            </button>
-          </header>
-          <div className="sim-shield-body">
-            <p className="sim-shield-lead">相手の何発目のゲージ技でシールドを使うかの設定</p>
-            <table className="sim-shield-table">
+          <h2 className="shield-panel-title">シールド</h2>
+          <table className="sim-shield-table">
               <thead>
                 <tr>
                   {SHIELD_LABELS.map((label) => (
@@ -301,6 +294,10 @@ export function PlanPopup({
                 </tr>
               </tbody>
             </table>
+          <div className="sim-iv-actions">
+            <button type="button" className="btn btn-primary" onClick={onClose}>
+              閉じる
+            </button>
           </div>
         </div>
       )}
