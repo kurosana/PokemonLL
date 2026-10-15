@@ -1038,17 +1038,34 @@ select.input {
 .shield-panel.is-dock-only {
   gap: 0;
   padding: 0.45rem 0.55rem calc(0.4rem + env(safe-area-inset-bottom));
+  border-top-right-radius: 0;
+}
+
+.shield-dock-ear {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem 0.34rem 0.22rem;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 0.55rem 0.55rem 0 0;
+  background: var(--surface-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transform: translateY(-100%);
+  pointer-events: auto;
 }
 
 .league-choice.shield-pin-toggle.is-dock {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
+  position: static;
   min-width: 2.12rem;
   min-height: 1.73rem;
   padding: 0.1rem 0.26rem;
-  transform: translate(12%, -58%);
+  transform: none;
 }
 
 .shield-pin-toggle.is-dock svg {
