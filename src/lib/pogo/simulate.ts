@@ -354,21 +354,26 @@ function preferDefender(next: SimResult, current: SimResult) {
   return next.energyA > current.energyA;
 }
 
-function simulateMoves(inputA: FighterInput, inputB: FighterInput): SimResult {
-  if (inputA.chargedQueue || inputB.chargedQueue || (inputA.charged.length <= 1 && inputB.charged.length <= 1)) {
-    return simulateLocked(inputA, inputB);
-  }
+/**
+ * 最適側だけ、今の相手条件で技を1種類に決める。
+ * カスタム順がある側、候補が1つ以下の側は入力のまま固定する。
+ * 片方のカスタムは、もう片方の最適探索を止めない。
+ */
+function moveChoices(input: FighterInput): FighterInput[] {
+  if (input.chargedQueue || input.charged.length <= 1) return [input];
+  return input.charged.map((move) => ({ ...input, charged: [move], chargedQueue: null }));
+}
 
-  const optionsA = inputA.charged.length ? inputA.charged : [null];
-  const optionsB = inputB.charged.length ? inputB.charged : [null];
+function simulateMoves(inputA: FighterInput, inputB: FighterInput): SimResult {
+  const optionsA = moveChoices(inputA);
+  const optionsB = moveChoices(inputB);
+  if (optionsA.length === 1 && optionsB.length === 1) return simulateLocked(optionsA[0], optionsB[0]);
+
   let bestForA: SimResult | null = null;
-  for (const moveA of optionsA) {
+  for (const nextA of optionsA) {
     let bestForB: SimResult | null = null;
-    for (const moveB of optionsB) {
-      const result = simulateLocked(
-        { ...inputA, charged: moveA ? [moveA] : [] },
-        { ...inputB, charged: moveB ? [moveB] : [] },
-      );
+    for (const nextB of optionsB) {
+      const result = simulateLocked(nextA, nextB);
       if (!bestForB || preferDefender(result, bestForB)) bestForB = result;
     }
     if (bestForB && (!bestForA || preferAttacker(bestForB, bestForA))) bestForA = bestForB;
