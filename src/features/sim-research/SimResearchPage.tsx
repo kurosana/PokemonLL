@@ -396,12 +396,13 @@ export function SimResearchPage() {
                 </div>
               ) : null}
 
+              <div className="timeline-stack">
               <p className="sim-section-label">タイムライン</p>
               <TimelineOps
                 sideA={sideA}
                 sideB={sideB}
-                movesA={fighterA.chargedMoves}
-                movesB={fighterB.chargedMoves}
+                movesA={fighterA.input.charged}
+                movesB={fighterB.input.charged}
                 timeline={result.timeline}
                 onChangeA={(next) => changeSide("a", next)}
                 onChangeB={(next) => changeSide("b", next)}
@@ -414,11 +415,12 @@ export function SimResearchPage() {
                   onCharged={(side, index) => setThrowEditor({ side, index })}
                 />
               </section>
+              </div>
               {planEditor ? (
                 <PlanPopup
                   kind={planEditor.kind}
                   side={planEditor.side === "a" ? sideA : sideB}
-                  moves={planEditor.side === "a" ? fighterA.chargedMoves : fighterB.chargedMoves}
+                  moves={planEditor.side === "a" ? fighterA.input.charged : fighterB.input.charged}
                   timeline={result.timeline}
                   actor={planEditor.side}
                   onClose={() => setPlanEditor(null)}
@@ -958,7 +960,12 @@ function MoveCell({
   const moveMain = (
     <span className="move-line-main">
       {cell.charged && cell.throwIndex != null ? (
-        <button type="button" className="move-charge-btn" onClick={() => onCharged(cell.throwIndex ?? 0)}>
+        <button
+          type="button"
+          className="move-charge-btn"
+          style={{ background: typeChargeFill(cell.type) }}
+          onClick={() => onCharged(cell.throwIndex ?? 0)}
+        >
           {cell.name}
         </button>
       ) : cell.name ? (
@@ -969,7 +976,7 @@ function MoveCell({
   );
   return (
     <td
-      className={`move${cell.endsCharge ? " ends-charge" : ""}${stacked ? " is-stacked" : ""}${longCct ? " is-long-cct" : ""}`}
+      className={`move${cell.endsCharge ? " ends-charge" : ""}${stacked ? " is-stacked" : ""}${longCct ? " is-long-cct" : ""}${cell.charged ? " is-charged" : ""}`}
       rowSpan={cell.span}
       style={cell.name ? { background: typeWash(cell.type) } : undefined}
     >
@@ -1171,6 +1178,54 @@ function typePastel(type: string) {
 
 function typeWash(type: string) {
   return `color-mix(in srgb, ${typePastel(type)} 51%, white)`;
+}
+
+function hexRgb(hex: string): [number, number, number] {
+  const value = hex.replace("#", "");
+  return [Number.parseInt(value.slice(0, 2), 16), Number.parseInt(value.slice(2, 4), 16), Number.parseInt(value.slice(4, 6), 16)];
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const light = (max + min) / 2;
+  if (max === min) return [0, 0, light];
+  const delta = max - min;
+  const sat = light > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+  const hueBase =
+    max === rn ? (gn - bn) / delta + (gn < bn ? 6 : 0) : max === gn ? (bn - rn) / delta + 2 : (rn - gn) / delta + 4;
+  return [hueBase / 6, sat, light];
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  if (s === 0) {
+    const gray = Math.round(l * 255);
+    return [gray, gray, gray];
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const from = (offset: number) => {
+    let t = h + offset;
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [from(1 / 3), from(0), from(-1 / 3)].map((value) => Math.round(value * 255)) as [number, number, number];
+}
+
+/** セルの薄い色より彩度を上げ、対面表のボタンに近い上下グラデーション。黒文字が残る明るさ。 */
+function typeChargeFill(type: string) {
+  const [hue, sat] = rgbToHsl(...hexRgb(typePastel(type)));
+  const vivid = sat < 0.08 ? 0.16 : Math.min(0.64, Math.max(0.46, sat * 1.85));
+  const top = hslToRgb(hue, vivid * 0.62, 0.88);
+  const bottom = hslToRgb(hue, vivid, 0.7);
+  return `linear-gradient(180deg, rgb(${top.join(",")}) 0%, rgb(${bottom.join(",")}) 100%)`;
 }
 
 function IvFields({

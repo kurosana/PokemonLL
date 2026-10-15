@@ -1,13 +1,21 @@
-import { useEffect, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import type { PvpMove } from "../../lib/pogo/combat";
 import type { ChargeTiming, TimelineEvent } from "../../lib/pogo/simulate";
 import type { SideState } from "./SimResearchPage";
 
 const PLAN_LABELS = ["1回目", "2回目", "3回目", "4回目", "5回目", "6回目"];
+const SHIELD_LABELS = ["1発目", "2発目", "3発目", "4発目", "5発目", "6発目"];
+const SHIELD_SRC = "/Image/sozai/shield-ui.png";
 
 function blankSlots() {
   return [null, null, null, null, null, null] as (string | null)[];
+}
+
+function readDamageDraft(draft: string) {
+  if (!/^\d{1,3}$/.test(draft)) return null;
+  const value = Number(draft);
+  return value >= 25 && value <= 100 ? value : null;
 }
 
 function moveShieldSlot(slots: number[], index: number) {
@@ -212,12 +220,14 @@ export function PlanPopup({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const equipped = moves.filter((move, index) => moves.findIndex((other) => other.id === move.id) === index);
+
   return createPortal(
-    <div className="search-overlay is-centered" role="dialog" aria-modal="true" aria-label={kind === "move" ? "技選択" : "シールド"}>
+    <div className="search-overlay is-centered" role="dialog" aria-modal="true" aria-label={kind === "move" ? "技選択" : "シールドカスタム設定"}>
       <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
-      <div className="search-overlay-panel sim-plan-panel">
-        <h2 className="shield-panel-title">{kind === "move" ? "技選択" : "シールド"}</h2>
-        {kind === "move" ? (
+      {kind === "move" ? (
+        <div className="search-overlay-panel sim-plan-panel">
+          <h2 className="shield-panel-title">技選択</h2>
           <div className="sim-plan-list">
             {PLAN_LABELS.map((label, index) => (
               <label key={label} className="field">
@@ -232,7 +242,7 @@ export function PlanPopup({
                   }}
                 >
                   <option value="">-</option>
-                  {moves.map((move) => (
+                  {equipped.map((move) => (
                     <option key={move.id} value={move.id}>
                       {move.name}
                     </option>
@@ -241,34 +251,59 @@ export function PlanPopup({
               </label>
             ))}
           </div>
-        ) : (
-          <div className="sim-shield-picks" role="group" aria-label="シールドを張る回">
-            {PLAN_LABELS.map((label, index) => {
-              const on = side.shieldSlots.includes(index);
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  className="league-choice sim-shield-pick"
-                  aria-pressed={on}
-                  onClick={() => {
-                    const shieldSlots = moveShieldSlot(side.shieldSlots, index);
-                    onChange({ ...side, shieldMode: "custom", shieldSlots, shields: shieldSlots.length });
-                  }}
-                >
-                  <span>{label}</span>
-                  <strong>{on ? "防" : ""}</strong>
-                </button>
-              );
-            })}
+          <div className="sim-iv-actions">
+            <button type="button" className="btn btn-primary" onClick={onClose}>
+              閉じる
+            </button>
           </div>
-        )}
-        <div className="sim-iv-actions">
-          <button type="button" className="btn btn-primary" onClick={onClose}>
-            閉じる
-          </button>
         </div>
-      </div>
+      ) : (
+        <div className="search-overlay-panel sim-shield-panel">
+          <header className="sim-shield-head">
+            <h2>シールドカスタム設定</h2>
+            <button type="button" className="sim-shield-close" aria-label="閉じる" onClick={onClose}>
+              ×
+            </button>
+          </header>
+          <div className="sim-shield-body">
+            <p className="sim-shield-lead">相手の何発目のゲージ技でシールドを使うかの設定</p>
+            <table className="sim-shield-table">
+              <thead>
+                <tr>
+                  {SHIELD_LABELS.map((label) => (
+                    <th key={label} scope="col">
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {SHIELD_LABELS.map((label, index) => {
+                    const on = side.shieldSlots.includes(index);
+                    return (
+                      <td key={label}>
+                        <button
+                          type="button"
+                          className="sim-shield-slot"
+                          aria-pressed={on}
+                          aria-label={`${label}でシールドを使う`}
+                          onClick={() => {
+                            const shieldSlots = moveShieldSlot(side.shieldSlots, index);
+                            onChange({ ...side, shieldMode: "custom", shieldSlots, shields: shieldSlots.length });
+                          }}
+                        >
+                          {on ? <img src={SHIELD_SRC} alt="" /> : null}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>,
     document.body,
   );
@@ -288,18 +323,34 @@ export function ThrowPopup({
   onChange: (next: SideState) => void;
 }) {
   const tweak = side.throwTweaks[index] ?? { buff: false, damagePercent: 100 };
+  const [draft, setDraft] = useState(String(tweak.damagePercent));
+  const [seenPercent, setSeenPercent] = useState(tweak.damagePercent);
+  if (seenPercent !== tweak.damagePercent) {
+    setSeenPercent(tweak.damagePercent);
+    setDraft(String(tweak.damagePercent));
+  }
   const write = (next: { buff: boolean; damagePercent: number }) => {
     const throwTweaks = [...side.throwTweaks];
     throwTweaks[index] = next;
     onChange({ ...side, throwTweaks });
   };
+  const commitDraft = () => {
+    const value = readDamageDraft(draft);
+    if (value == null) {
+      setDraft(String(tweak.damagePercent));
+      return;
+    }
+    if (value !== tweak.damagePercent) write({ ...tweak, damagePercent: value });
+  };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      commitDraft();
+      onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, draft, tweak, side.throwTweaks, index]);
 
   return createPortal(
     <div className="search-overlay is-centered" role="dialog" aria-modal="true" aria-label={moveName}>
@@ -310,7 +361,11 @@ export function ThrowPopup({
           type="button"
           className="league-choice timeline-op"
           aria-pressed={tweak.buff}
-          onClick={() => write({ ...tweak, buff: !tweak.buff })}
+          onClick={() => {
+            const value = readDamageDraft(draft);
+            if (value == null) setDraft(String(tweak.damagePercent));
+            write({ buff: !tweak.buff, damagePercent: value ?? tweak.damagePercent });
+          }}
         >
           追加効果
         </button>
@@ -318,16 +373,20 @@ export function ThrowPopup({
           <span>ダメージ</span>
           <span className="sim-damage-input">
             <input
-              className="input"
+              className="input num"
               inputMode="numeric"
-              value={String(tweak.damagePercent)}
-              onChange={(event) => {
-                const digits = event.target.value.replace(/[^\d]/g, "");
-                if (!digits) {
-                  write({ ...tweak, damagePercent: 25 });
-                  return;
+              autoComplete="off"
+              enterKeyHint="done"
+              autoFocus
+              value={draft}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, "").slice(0, 3))}
+              onBlur={commitDraft}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.blur();
                 }
-                write({ ...tweak, damagePercent: Math.max(25, Math.min(100, Number(digits))) });
               }}
             />
             <span>%</span>
@@ -346,8 +405,11 @@ export function ThrowPopup({
               key={label}
               type="button"
               className="league-choice timeline-op"
-              aria-pressed={tweak.damagePercent === percent}
-              onClick={() => write({ ...tweak, damagePercent: percent })}
+              aria-pressed={draft !== "" && Number(draft) === percent}
+              onClick={() => {
+                setDraft(String(percent));
+                write({ ...tweak, damagePercent: percent });
+              }}
             >
               {label}
             </button>
