@@ -1267,6 +1267,10 @@ select.input {
   white-space: nowrap;
 }
 
+.battle-sheet .move-line-main:has(.move-charge-btn) {
+  align-items: center;
+}
+
 .battle-sheet .move.is-stacked {
   height: auto;
   line-height: 1.15;
@@ -1366,10 +1370,33 @@ select.input {
   text-align: left;
 }
 
+.timeline-stack {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.timeline-stack > .sim-section-label {
+  margin-bottom: 0;
+}
+
+.timeline-stack > .timeline-ops {
+  margin: 0;
+}
+
 .battle-sheet tr.has-charge > td,
 .battle-sheet td.ends-charge {
   border-bottom-width: 2px;
   border-bottom-color: rgba(28, 44, 58, 0.62);
+}
+
+.battle-sheet tr.has-charge > td {
+  height: 1.46rem;
+  min-height: 1.46rem;
+}
+
+.battle-sheet td.move.is-charged {
+  vertical-align: middle;
+  line-height: 1.15;
 }
 
 .type-wash-defs {
@@ -3045,17 +3072,22 @@ button.shield-corner.is-selected {
 .battle-sheet .move-charge-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   max-width: 100%;
+  min-height: 1.22rem;
   margin: 0;
-  padding: 0 0.28rem;
-  border: 1px solid rgba(28, 45, 62, 0.28);
-  border-radius: 0.35rem;
-  background: rgba(255, 255, 255, 0.78);
-  color: inherit;
+  padding: 0.08rem 0.42rem;
+  border: 0;
+  border-radius: 0.7rem;
+  color: #1a2733;
   font: inherit;
+  font-size: 0.74rem;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.1;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 1px rgba(28, 45, 62, 0.18);
 }
 
 .search-overlay-panel.sim-plan-panel {
@@ -3094,7 +3126,121 @@ button.shield-corner.is-selected {
 }
 
 .sim-damage-input .input {
-  width: 5rem;
+  width: 5.5rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.search-overlay-panel.sim-shield-panel {
+  width: min(42rem, 100%);
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  grid-template-rows: auto auto;
+  background: #fff;
+  border-radius: 0.55rem;
+  box-shadow: 0 16px 40px rgba(26, 39, 51, 0.28);
+}
+
+.sim-shield-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.4rem;
+  padding: 0.85rem 0.75rem 0.85rem 1.05rem;
+  background: #73829b;
+  color: #fff;
+}
+
+.sim-shield-head h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+}
+
+.sim-shield-close {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sim-shield-body {
+  padding: 0.8rem 0.55rem 0.95rem;
+  background: #fff;
+}
+
+.sim-shield-lead {
+  margin: 0 0 0.65rem;
+  color: #1a2733;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.sim-shield-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #fff;
+}
+
+.sim-shield-table th,
+.sim-shield-table td {
+  border: 1px solid #d5e0ea;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.sim-shield-table th {
+  padding: 0.42rem 0.08rem;
+  background: #e7f3fb;
+  color: #1a2733;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sim-shield-table td {
+  height: 4.7rem;
+  padding: 0;
+  background: #fff;
+}
+
+.sim-shield-slot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 4.7rem;
+  margin: 0;
+  padding: 0.15rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sim-shield-slot img {
+  width: auto;
+  height: 2.45rem;
+  object-fit: contain;
+}
+
+.sim-shield-slot:focus-visible {
+  outline: 2px solid #3d7ea6;
+  outline-offset: -2px;
 }
 
 .sim-throw-presets {
