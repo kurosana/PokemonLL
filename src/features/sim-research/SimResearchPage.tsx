@@ -28,6 +28,7 @@ import {
   type SimResult,
   type TimelineEvent,
 } from "../../lib/pogo/simulate";
+import { moveBonusEffectDescription } from "../../lib/pogo/moveBonusEffect";
 import { TimelineOps, PlanPopup, ThrowPopup, chargedNameAt } from "./TimelineOps";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
@@ -432,6 +433,16 @@ export function SimResearchPage() {
                   side={throwEditor.side === "a" ? sideA : sideB}
                   index={throwEditor.index}
                   moveName={chargedNameAt(result.timeline, throwEditor.side, throwEditor.index)}
+                  effectText={moveBonusEffectDescription(
+                    data?.bundle.moves[
+                      result.timeline.find(
+                        (event) =>
+                          event.actor === throwEditor.side &&
+                          event.kind === "charged" &&
+                          event.throwIndex === throwEditor.index,
+                      )?.moveId ?? ""
+                    ],
+                  )}
                   onClose={() => setThrowEditor(null)}
                   onChange={(next) => changeSide(throwEditor.side, next)}
                 />

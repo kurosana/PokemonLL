@@ -3124,6 +3124,26 @@ button.shield-corner.is-selected {
   min-height: 2.6rem;
 }
 
+.sim-throw-buff {
+  display: grid;
+  gap: 0.22rem;
+  justify-items: end;
+}
+
+.sim-throw-buff .league-choice.timeline-op {
+  justify-self: start;
+}
+
+.sim-throw-buff-note {
+  margin: 0;
+  max-width: 100%;
+  color: #5d6b78;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: right;
+}
+
 .sim-damage-field {
   display: grid;
   gap: 0.25rem;
