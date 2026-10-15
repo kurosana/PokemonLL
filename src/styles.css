@@ -3002,6 +3002,10 @@ select.input {
   font-weight: 800;
 }
 
+.sim-matchup .hp-track {
+  width: 100%;
+}
+
 .sim-gauge {
   margin: 0.28rem 0 0;
   color: #1a2733;
@@ -3118,6 +3122,26 @@ button.shield-corner.is-selected {
   display: grid;
   gap: 0.1rem;
   min-height: 2.6rem;
+}
+
+.sim-throw-buff {
+  display: grid;
+  gap: 0.22rem;
+  justify-items: end;
+}
+
+.sim-throw-buff .league-choice.timeline-op {
+  justify-self: start;
+}
+
+.sim-throw-buff-note {
+  margin: 0;
+  max-width: 100%;
+  color: #5d6b78;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: right;
 }
 
 .sim-damage-field {

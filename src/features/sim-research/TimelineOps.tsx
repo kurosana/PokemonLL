@@ -310,12 +310,14 @@ export function ThrowPopup({
   side,
   index,
   moveName,
+  effectText,
   onClose,
   onChange,
 }: {
   side: SideState;
   index: number;
   moveName: string;
+  effectText: string;
   onClose: () => void;
   onChange: (next: SideState) => void;
 }) {
@@ -354,18 +356,21 @@ export function ThrowPopup({
       <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
       <div className="search-overlay-panel sim-plan-panel">
         <h2 className="shield-panel-title">{moveName}</h2>
-        <button
-          type="button"
-          className="league-choice timeline-op"
-          aria-pressed={tweak.buff}
-          onClick={() => {
-            const value = readDamageDraft(draft);
-            if (value == null) setDraft(String(tweak.damagePercent));
-            write({ buff: !tweak.buff, damagePercent: value ?? tweak.damagePercent });
-          }}
-        >
-          追加効果
-        </button>
+        <div className="sim-throw-buff">
+          <button
+            type="button"
+            className="league-choice timeline-op"
+            aria-pressed={tweak.buff}
+            onClick={() => {
+              const value = readDamageDraft(draft);
+              if (value == null) setDraft(String(tweak.damagePercent));
+              write({ buff: !tweak.buff, damagePercent: value ?? tweak.damagePercent });
+            }}
+          >
+            追加効果
+          </button>
+          <p className="sim-throw-buff-note">追加効果：{effectText}</p>
+        </div>
         <label className="field sim-damage-field">
           <span>ダメージ</span>
           <span className="sim-damage-input">
