@@ -539,6 +539,11 @@ h1 {
   margin: 0.15rem 0 0;
   font-size: 1.35rem;
   line-height: 1.3;
+  min-width: 0;
+}
+
+.selected-name .pokemon-label-fit-line-inner {
+  font-size: inherit;
 }
 
 .dex-no {
@@ -1641,12 +1646,17 @@ select.input {
 
 .mon-pick-name {
   flex: 1;
+  min-width: 0;
   min-height: 3.35rem;
   padding: 0 1.1rem;
   text-align: left;
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--accent-deep);
+}
+
+.mon-pick-name .pokemon-label-fit {
+  color: inherit;
 }
 
 .mon-pick-name:hover,
@@ -2364,6 +2374,39 @@ select.input {
 
 .search-result-name {
   font-weight: 700;
+  min-width: 0;
+}
+
+.pokemon-label-fit {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  font-weight: inherit;
+}
+
+.pokemon-label-fit.is-stacked {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.pokemon-label-fit-line {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.pokemon-label-fit-line-inner {
+  display: inline-block;
+  max-width: 100%;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.pokemon-label-fit-suffix .pokemon-label-fit-line-inner {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .search-result-no {
@@ -2562,6 +2605,7 @@ select.input {
 
 .identity-pick-name {
   display: block;
+  min-width: 0;
   font-weight: 700;
   line-height: 1.3;
 }
@@ -2924,11 +2968,14 @@ select.input {
 .sim-matchup {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(6, auto);
   gap: 0.85rem;
 }
 
 .sim-matchup-side {
   display: grid;
+  grid-row: 1 / span 6;
+  grid-template-rows: subgrid;
   justify-items: center;
   gap: 0.35rem;
   min-width: 0;
@@ -2943,6 +2990,12 @@ select.input {
   gap: 0.4rem;
   min-width: 0;
   max-width: 100%;
+  width: 100%;
+  min-height: 68px;
+}
+
+.sim-mon-block .pokemon-dot-sprite {
+  flex: 0 0 auto;
 }
 
 .sim-real-stats {
@@ -2977,8 +3030,12 @@ select.input {
 .sim-win,
 .sim-lose,
 .sim-draw {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   margin: 0;
-  min-height: 2.15rem;
+  height: 2.15rem;
   font-weight: 900;
   letter-spacing: 0.04em;
   line-height: 1;
@@ -3351,6 +3408,12 @@ button.shield-corner.is-selected {
   gap: 0.35rem;
 }
 
+.sim-hit-list.is-empty {
+  margin: 0;
+  padding: 0;
+  border-top: none;
+}
+
 .sim-hit-row {
   display: grid;
   gap: 0.18rem;
@@ -3398,6 +3461,7 @@ button.shield-corner.is-selected {
 
   .sim-mon-block {
     gap: 0.22rem;
+    min-height: 52px;
   }
 
   .sim-mon-block .pokemon-dot-sprite {
@@ -3409,8 +3473,13 @@ button.shield-corner.is-selected {
     font-size: 0.6rem;
   }
 
+  .sim-win,
+  .sim-lose,
+  .sim-draw {
+    height: 1.75rem;
+  }
+
   .sim-win {
-    min-height: 1.75rem;
     font-size: 1.75rem;
   }
 
@@ -3466,6 +3535,10 @@ button.shield-corner.is-selected {
     gap: 0.2rem;
   }
 
+  .sim-mon-block {
+    min-height: 40px;
+  }
+
   .sim-mon-block .pokemon-dot-sprite {
     width: 40px !important;
     height: 40px !important;
@@ -3475,8 +3548,13 @@ button.shield-corner.is-selected {
     font-size: 0.54rem;
   }
 
+  .sim-win,
+  .sim-lose,
+  .sim-draw {
+    height: 1.4rem;
+  }
+
   .sim-win {
-    min-height: 1.4rem;
     font-size: 1.42rem;
   }
 

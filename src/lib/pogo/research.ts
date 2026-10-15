@@ -76,6 +76,23 @@ export function speciesDisplayName(group: SpeciesGroup) {
   return group.label ?? getPokemonDisplayName(group.pokemonId, group.name);
 }
 
+/** 表示ラベルを「ポケモン名」と「フォルム等の追記」に分ける（1行目は名前を収めるため）。 */
+export function displayNameParts(pokemonId: number, pokemonName: string, displayLabel: string) {
+  const name = getPokemonDisplayName(pokemonId, pokemonName);
+  if (displayLabel === name) return { name, suffix: null as string | null };
+  if (displayLabel.startsWith(name)) {
+    const suffix = displayLabel.slice(name.length).trim();
+    return { name, suffix: suffix || null };
+  }
+  return { name: displayLabel, suffix: null };
+}
+
+export function speciesLabelParts(group: SpeciesGroup) {
+  const entry = group.entries[0];
+  const pokemonName = entry?.pokemon_name ?? group.name;
+  return displayNameParts(group.pokemonId, pokemonName, speciesDisplayName(group));
+}
+
 const levelOrder = (a: number, b: number) => a - b;
 
 export function buildCpMultiplierMap(records: CpMultiplierRecord[]) {

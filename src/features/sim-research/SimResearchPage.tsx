@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, Pin } from "lucide-react";
 import { LeagueIconButton } from "../../components/LeagueIconButton";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
+import { PokemonLabelFit } from "../../components/PokemonLabelFit";
 import { damageForMove, type PvpMove } from "../../lib/pogo/combat";
 import { bestMoves } from "../../lib/pogo/moveScore";
 import { findPvpPokemon, resolveMoves } from "../../lib/pogo/pvpBundle";
@@ -13,6 +14,7 @@ import {
   formatScp,
   leagueCap,
   leagueConfigs,
+  displayNameParts,
   speciesDisplayName,
   withBuddyLevels,
   type LeagueId,
@@ -721,7 +723,11 @@ function FighterCard({
             <img className="pokemon-dot-sprite" src="/Image/sprite/Question_Mark.png" alt="" width={40} height={40} />
           )}
         </span>
-        <span className="identity-pick-name">{side.record ? side.label : "検索"}</span>
+        {side.record ? (
+          <PokemonLabelFit className="identity-pick-name" {...displayNameParts(side.record.pokemon_id, side.record.pokemon_name, side.label)} />
+        ) : (
+          <PokemonLabelFit className="identity-pick-name" name="検索" singleLine />
+        )}
       </button>
 
       {!side.record ? null : stats ? (
@@ -1119,9 +1125,9 @@ function MatchupSide({
         <i style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
       </div>
       <p className="sim-gauge">ゲージ：{energy}</p>
-      {hits.length ? (
-        <ul className="sim-hit-list" aria-label="技ダメージ">
-          {hits.map((row) => {
+      <ul className={`sim-hit-list${hits.length ? "" : " is-empty"}`} aria-label={hits.length ? "技ダメージ" : undefined}>
+        {hits.length ? (
+          hits.map((row) => {
             const lossRatio = Math.max(0, Math.min(1, 1 - row.remainRatio));
             const remainPct = row.remainRatio * 100;
             const lossPct = lossRatio * 100;
@@ -1150,9 +1156,9 @@ function MatchupSide({
                 </div>
               </li>
             );
-          })}
-        </ul>
-      ) : null}
+          })
+        ) : null}
+      </ul>
     </div>
   );
 }

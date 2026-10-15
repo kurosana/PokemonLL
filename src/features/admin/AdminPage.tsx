@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
+import { PokemonLabelFit } from "../../components/PokemonLabelFit";
 import type { PvpMove } from "../../lib/pogo/combat";
 import { learnsetKey, loadMoveEdits, saveMoveEdits } from "../../lib/pogo/moveEdits";
 import { findPvpPokemon, type PvpBundle, type PvpPokemonRecord } from "../../lib/pogo/pvpBundle";
-import { speciesDisplayName, type SpeciesGroup } from "../../lib/pogo/research";
+import { displayNameParts, speciesDisplayName, type SpeciesGroup } from "../../lib/pogo/research";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
 import { MoveSearchDialog } from "./MoveSearchDialog";
@@ -272,7 +273,14 @@ function PokemonEditor({ bundle, onSaved }: { bundle: PvpBundle; onSaved: () => 
           )}
         </span>
         <span>
-          <span className="identity-pick-name">{picked ? picked.label : "ポケモンを検索"}</span>
+          {picked ? (
+            <PokemonLabelFit
+              className="identity-pick-name"
+              {...displayNameParts(picked.pokemonId, "", picked.label)}
+            />
+          ) : (
+            <PokemonLabelFit className="identity-pick-name" name="ポケモンを検索" singleLine />
+          )}
           {picked ? <span className="note">押すと入れ替え</span> : null}
         </span>
       </button>
