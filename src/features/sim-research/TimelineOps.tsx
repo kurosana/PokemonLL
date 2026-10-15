@@ -377,9 +377,9 @@ export function ThrowPopup({
             {effectLines.length ? (
               effectLines.map((line, lineIndex) => (
                 <p key={`${lineIndex}-${line.kind}-${line.stage}`} className="sim-throw-buff-line">
-                  <span className="sim-throw-buff-chance">{line.chance}</span>
-                  <span className="sim-throw-buff-kind">{line.kind}</span>
-                  <span className="sim-throw-buff-stage">{line.stage}</span>
+                  {line.chance}
+                  {line.kind}
+                  {line.stage}
                 </p>
               ))
             ) : (
@@ -397,7 +397,6 @@ export function ThrowPopup({
               inputMode="numeric"
               autoComplete="off"
               enterKeyHint="done"
-              autoFocus
               value={draft}
               onFocus={(event) => event.currentTarget.select()}
               onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, "").slice(0, 3))}
