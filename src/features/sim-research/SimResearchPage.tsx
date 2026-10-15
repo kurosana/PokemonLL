@@ -379,15 +379,17 @@ function ShieldGridView({
           </button>
         </div>
       ) : (
-        <button
-          type="button"
-          className="league-choice shield-pin-toggle is-dock"
-          aria-pressed={Boolean(pinned)}
-          aria-label="画面固定を外す"
-          onClick={onTogglePin}
-        >
-          <Pin size={14} aria-hidden="true" />
-        </button>
+        <div className="shield-dock-ear">
+          <button
+            type="button"
+            className="league-choice shield-pin-toggle is-dock"
+            aria-pressed={Boolean(pinned)}
+            aria-label="画面固定を外す"
+            onClick={onTogglePin}
+          >
+            <Pin size={14} aria-hidden="true" />
+          </button>
+        </div>
       )}
       <div className="shield-grid" role="grid" aria-label="シールド評価">
         <span className="shield-corner">
