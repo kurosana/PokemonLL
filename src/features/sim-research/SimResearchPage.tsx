@@ -1125,9 +1125,9 @@ function MatchupSide({
         <i style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
       </div>
       <p className="sim-gauge">ゲージ：{energy}</p>
-      {hits.length ? (
-        <ul className="sim-hit-list" aria-label="技ダメージ">
-          {hits.map((row) => {
+      <ul className={`sim-hit-list${hits.length ? "" : " is-empty"}`} aria-label={hits.length ? "技ダメージ" : undefined}>
+        {hits.length ? (
+          hits.map((row) => {
             const lossRatio = Math.max(0, Math.min(1, 1 - row.remainRatio));
             const remainPct = row.remainRatio * 100;
             const lossPct = lossRatio * 100;
@@ -1156,9 +1156,9 @@ function MatchupSide({
                 </div>
               </li>
             );
-          })}
-        </ul>
-      ) : null}
+          })
+        ) : null}
+      </ul>
     </div>
   );
 }

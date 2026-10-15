@@ -2968,11 +2968,14 @@ select.input {
 .sim-matchup {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(6, auto);
   gap: 0.85rem;
 }
 
 .sim-matchup-side {
   display: grid;
+  grid-row: 1 / span 6;
+  grid-template-rows: subgrid;
   justify-items: center;
   gap: 0.35rem;
   min-width: 0;
@@ -2987,6 +2990,12 @@ select.input {
   gap: 0.4rem;
   min-width: 0;
   max-width: 100%;
+  width: 100%;
+  min-height: 68px;
+}
+
+.sim-mon-block .pokemon-dot-sprite {
+  flex: 0 0 auto;
 }
 
 .sim-real-stats {
@@ -3021,8 +3030,12 @@ select.input {
 .sim-win,
 .sim-lose,
 .sim-draw {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   margin: 0;
-  min-height: 2.15rem;
+  height: 2.15rem;
   font-weight: 900;
   letter-spacing: 0.04em;
   line-height: 1;
@@ -3395,6 +3408,12 @@ button.shield-corner.is-selected {
   gap: 0.35rem;
 }
 
+.sim-hit-list.is-empty {
+  margin: 0;
+  padding: 0;
+  border-top: none;
+}
+
 .sim-hit-row {
   display: grid;
   gap: 0.18rem;
@@ -3442,6 +3461,7 @@ button.shield-corner.is-selected {
 
   .sim-mon-block {
     gap: 0.22rem;
+    min-height: 52px;
   }
 
   .sim-mon-block .pokemon-dot-sprite {
@@ -3453,8 +3473,13 @@ button.shield-corner.is-selected {
     font-size: 0.6rem;
   }
 
+  .sim-win,
+  .sim-lose,
+  .sim-draw {
+    height: 1.75rem;
+  }
+
   .sim-win {
-    min-height: 1.75rem;
     font-size: 1.75rem;
   }
 
@@ -3510,6 +3535,10 @@ button.shield-corner.is-selected {
     gap: 0.2rem;
   }
 
+  .sim-mon-block {
+    min-height: 40px;
+  }
+
   .sim-mon-block .pokemon-dot-sprite {
     width: 40px !important;
     height: 40px !important;
@@ -3519,8 +3548,13 @@ button.shield-corner.is-selected {
     font-size: 0.54rem;
   }
 
+  .sim-win,
+  .sim-lose,
+  .sim-draw {
+    height: 1.4rem;
+  }
+
   .sim-win {
-    min-height: 1.4rem;
     font-size: 1.42rem;
   }
 
