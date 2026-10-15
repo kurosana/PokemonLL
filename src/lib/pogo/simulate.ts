@@ -3,6 +3,7 @@
  * このファイルを直す前に、その文書を読む。連戦モードでも同じ順で処理する。
  */
 import { damageForMove, type PvpMove } from "./combat";
+import { resolveThrowTweak } from "./moveBonusEffect";
 
 export type ChargeTiming = "asap" | "cct";
 export type FighterId = "a" | "b";
@@ -447,8 +448,8 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         continue;
       }
       self.energy = Math.max(0, self.energy - action.move.energy);
-      const tweak = self.throwTweaks?.[self.thrown] ?? null;
       const throwIndex = self.thrown;
+      const tweak = resolveThrowTweak(self.throwTweaks?.[throwIndex] ?? null, action.move);
       self.thrown += 1;
       let damage = 0;
       let shielded = false;

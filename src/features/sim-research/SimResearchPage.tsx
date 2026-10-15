@@ -433,6 +433,16 @@ export function SimResearchPage() {
                   side={throwEditor.side === "a" ? sideA : sideB}
                   index={throwEditor.index}
                   moveName={chargedNameAt(result.timeline, throwEditor.side, throwEditor.index)}
+                  move={
+                    data?.bundle.moves[
+                      result.timeline.find(
+                        (event) =>
+                          event.actor === throwEditor.side &&
+                          event.kind === "charged" &&
+                          event.throwIndex === throwEditor.index,
+                      )?.moveId ?? ""
+                    ] ?? null
+                  }
                   effectLines={moveBonusEffectLines(
                     data?.bundle.moves[
                       result.timeline.find(

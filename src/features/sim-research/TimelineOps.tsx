@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import type { MoveBonusEffectLine } from "../../lib/pogo/moveBonusEffect";
+import { throwTweakForDisplay } from "../../lib/pogo/moveBonusEffect";
 import type { PvpMove } from "../../lib/pogo/combat";
 import type { ChargeTiming, TimelineEvent } from "../../lib/pogo/simulate";
 import type { SideState } from "./SimResearchPage";
@@ -311,6 +312,7 @@ export function ThrowPopup({
   side,
   index,
   moveName,
+  move,
   effectLines,
   onClose,
   onChange,
@@ -318,11 +320,12 @@ export function ThrowPopup({
   side: SideState;
   index: number;
   moveName: string;
+  move: PvpMove | null;
   effectLines: MoveBonusEffectLine[];
   onClose: () => void;
   onChange: (next: SideState) => void;
 }) {
-  const tweak = side.throwTweaks[index] ?? { buff: false, damagePercent: 100 };
+  const tweak = throwTweakForDisplay(side.throwTweaks[index], move);
   const [draft, setDraft] = useState(String(tweak.damagePercent));
   const [seenPercent, setSeenPercent] = useState(tweak.damagePercent);
   if (seenPercent !== tweak.damagePercent) {
