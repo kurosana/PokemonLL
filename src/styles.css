@@ -3002,6 +3002,10 @@ select.input {
   font-weight: 800;
 }
 
+.sim-matchup .hp-track {
+  width: 100%;
+}
+
 .sim-gauge {
   margin: 0.28rem 0 0;
   color: #1a2733;
