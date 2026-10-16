@@ -1,7 +1,9 @@
 export type TimelineStep =
   | { kind: "fast"; moveId: string; /** 途中完了したときの実ターン数。未指定は技本来のターン数。 */ turns?: number }
   | { kind: "charged"; moveId: string }
-  | { kind: "wait" };
+  | { kind: "wait" }
+  /** 枠だけ残す。技は入らない。消したあとに次の技を滑り込ませない。 */
+  | { kind: "blank" };
 
 export type StepMark = "ok" | "void" | "short";
 
@@ -21,6 +23,46 @@ export type TimelineSpan = {
 export function stepDuration(step: TimelineStep, fastTurns: number) {
   if (step.kind === "fast") return Math.max(1, step.turns ?? fastTurns);
   return 1;
+}
+
+function blanks(count: number): TimelineStep[] {
+  return Array.from({ length: Math.max(1, count) }, () => ({ kind: "blank" as const }));
+}
+
+/**
+ * スペシャルアタックの直前に、相手のノーマルアタックで余るターンぶんの空白を置く。
+ * 空白は枠を残す。次の技はそこへ進まない。
+ */
+export function withSpecialBlanks(steps: TimelineStep[], foeFastTurns: number) {
+  const gap = Math.max(0, Math.floor(foeFastTurns) - 1);
+  if (gap === 0) return steps;
+  const next: TimelineStep[] = [];
+  for (const step of steps) {
+    if (step.kind === "charged") {
+      let have = 0;
+      for (let index = next.length - 1; index >= 0 && next[index]?.kind === "blank" && have < gap; index -= 1) have += 1;
+      for (let extra = have; extra < gap; extra += 1) next.push({ kind: "blank" });
+    }
+    next.push(step);
+  }
+  return next;
+}
+
+/** その手順を消し、同じ長さの空白を残す。スペシャルの並びは、残った技の元の番号。 */
+export function holdAsBlank(steps: TimelineStep[], index: number, fastTurns: number) {
+  const chargedMap: number[] = [];
+  let ordinal = 0;
+  const next: TimelineStep[] = [];
+  steps.forEach((step, stepIndex) => {
+    const mine = step.kind === "charged" ? ordinal++ : -1;
+    if (stepIndex === index) {
+      next.push(...blanks(step.kind === "fast" ? stepDuration(step, fastTurns) : 1));
+      return;
+    }
+    if (mine >= 0) chargedMap.push(mine);
+    next.push(step);
+  });
+  return { steps: next, chargedMap };
 }
 
 export function expandPlan(steps: TimelineStep[], fastTurns: number): TimelineSpan[] {
@@ -53,28 +95,78 @@ export function locateTurn(steps: TimelineStep[], fastTurns: number, turn: numbe
 
 /**
  * 指定ターンに挿入する位置。
- * ノーマルアタックの継続中（開始ターンより後）なら、その技の直後。
- * それ以外は、そのターンを占めている手順の前。範囲外は末尾。
+ * そのターンを占めている手順の前。範囲外は末尾。
+ * ノーマルアタックの継続中でも、その場に割って入る（直後へ送らない）。
  */
 export function insertIndex(steps: TimelineStep[], fastTurns: number, turn: number) {
   let cursor = 1;
   for (let index = 0; index < steps.length; index += 1) {
     const turns = stepDuration(steps[index], fastTurns);
-    const start = cursor;
     const end = cursor + turns - 1;
-    if (turn <= end) {
-      if (steps[index].kind === "fast" && turn > start) return index + 1;
-      return index;
-    }
+    if (turn <= end) return index;
     cursor = end + 1;
   }
   return steps.length;
 }
 
+/** 新しいスペシャルの並び。元からあった技はその番号、今入った技は -1。 */
+function withChargedMap(before: TimelineStep[], after: TimelineStep[]) {
+  const oldOf = new Map<TimelineStep, number>();
+  let ordinal = 0;
+  before.forEach((step) => {
+    if (step.kind === "charged") oldOf.set(step, ordinal++);
+  });
+  const chargedMap: number[] = [];
+  after.forEach((step) => {
+    if (step.kind !== "charged") return;
+    chargedMap.push(oldOf.get(step) ?? -1);
+  });
+  return chargedMap;
+}
+
+/** 継続中のノーマルアタックを、指定オフセットで前後に割る。 */
+function splitFast(steps: TimelineStep[], index: number, offset: number, step: TimelineStep, fastTurns: number) {
+  const fast = steps[index];
+  if (!fast || fast.kind !== "fast" || offset <= 0) return steps;
+  const total = stepDuration(fast, fastTurns);
+  const head: TimelineStep = { kind: "fast", moveId: fast.moveId, turns: offset };
+  const tailTurns = total - offset;
+  const next = steps.slice();
+  next.splice(index, 1, head, step, ...(tailTurns > 0 ? blanks(tailTurns) : []));
+  return next;
+}
+
 export function insertStep(steps: TimelineStep[], fastTurns: number, turn: number, step: TimelineStep) {
+  const located = locateTurn(steps, fastTurns, turn);
+  if (located && located.offset === 0 && located.step.kind === "blank") {
+    const next = steps.slice();
+    next[located.index] = step;
+    return next;
+  }
+  if (located && located.step.kind === "fast" && located.offset > 0) {
+    return splitFast(steps, located.index, located.offset, step, fastTurns);
+  }
   const next = steps.slice();
   next.splice(insertIndex(steps, fastTurns, turn), 0, step);
   return next;
+}
+
+/**
+ * 表示上ひとまとまりのターンへ技を置く。
+ * その中の空白があれば、先頭の空白に入る。無ければそのターンへ割って入る。
+ */
+export function placeStep(steps: TimelineStep[], fastTurns: number, turn: number, span: number, step: TimelineStep) {
+  const before = steps;
+  for (let cursor = turn; cursor < turn + Math.max(1, span); cursor += 1) {
+    const located = locateTurn(steps, fastTurns, cursor);
+    if (located && located.offset === 0 && located.step.kind === "blank") {
+      const next = steps.slice();
+      next[located.index] = step;
+      return { steps: next, chargedMap: withChargedMap(before, next) };
+    }
+  }
+  const next = insertStep(steps, fastTurns, turn, step);
+  return { steps: next, chargedMap: withChargedMap(before, next) };
 }
 
 export function deleteStep(steps: TimelineStep[], index: number) {
@@ -174,11 +266,7 @@ export function inspectTimeline(
   const covering = (list: Occupancy[], turn: number) => list.find((span) => span.start <= turn && turn <= span.end);
   const marksOf = (side: SideName) => (side === "a" ? marksA : marksB);
 
-  for (let turn = 1; turn <= maxTurn; turn += 1) {
-    for (const span of [starting(spansA, turn), starting(spansB, turn)]) {
-      if (span && collapsed.has(turn)) marksOf(span.side)[span.index] = "void";
-    }
-
+    for (let turn = 1; turn <= maxTurn; turn += 1) {
     let fired = false;
     for (const span of [starting(spansA, turn), starting(spansB, turn)]) {
       if (!span || !closesFastEarly(span.step)) continue;
@@ -272,25 +360,19 @@ function sameSteps(left: TimelineStep[], right: TimelineStep[]) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function rewriteSide(steps: TimelineStep[], clock: SideClock, natural: number) {
+function rewriteSide(steps: TimelineStep[], clock: SideClock) {
   const chargedMap: number[] = [];
   const next: TimelineStep[] = [];
   let chargedOrdinal = 0;
   steps.forEach((step, index) => {
     const ordinal = step.kind === "charged" ? chargedOrdinal++ : -1;
-    if (clock.marks[index] === "void") return;
+    if (clock.marks[index] === "void") {
+      const count = step.kind === "fast" ? Math.max(1, clock.effectiveTurns[index] ?? 1) : 1;
+      next.push(...blanks(count));
+      return;
+    }
     if (step.kind === "charged" && ordinal >= 0) chargedMap.push(ordinal);
-    if (step.kind !== "fast") {
-      next.push(step);
-      return;
-    }
-    const effective = clock.effectiveTurns[index] ?? natural;
-    if (effective >= natural) {
-      const { turns: _turns, ...rest } = step;
-      next.push(rest);
-      return;
-    }
-    next.push({ ...step, turns: effective });
+    next.push(step);
   });
   return { steps: next, chargedMap };
 }
@@ -312,8 +394,8 @@ export function correctTimeline(
   let chargedMapB = stepsB.flatMap((step) => (step.kind === "charged" ? [0] : [])).map((_, ordinal) => ordinal);
   for (let pass = 0; pass < 8; pass += 1) {
     const view = inspectTimeline(nextA, fastTurnsA, gainA, costA, nextB, fastTurnsB, gainB, costB);
-    const rewrittenA = rewriteSide(nextA, view.a, fastTurnsA);
-    const rewrittenB = rewriteSide(nextB, view.b, fastTurnsB);
+    const rewrittenA = rewriteSide(nextA, view.a);
+    const rewrittenB = rewriteSide(nextB, view.b);
     chargedMapA = rewrittenA.chargedMap.map((ordinal) => chargedMapA[ordinal]).filter((ordinal) => ordinal != null);
     chargedMapB = rewrittenB.chargedMap.map((ordinal) => chargedMapB[ordinal]).filter((ordinal) => ordinal != null);
     if (sameSteps(rewrittenA.steps, nextA) && sameSteps(rewrittenB.steps, nextB)) break;
@@ -321,6 +403,46 @@ export function correctTimeline(
     nextB = rewrittenB.steps;
   }
   return { stepsA: nextA, stepsB: nextB, chargedMapA, chargedMapB };
+}
+
+export type DisplayRow = {
+  /** 手順上のターン。1始まり。 */
+  turn: number;
+  /** 画面のターン番号。空白だけで続いている行は null。 */
+  label: number | null;
+  /** この番号が何行分か。番号の無い行は 0。 */
+  span: number;
+};
+
+function startsNumbered(span: TimelineSpan | undefined, turn: number) {
+  if (!span || span.startTurn !== turn) return false;
+  return span.step.kind !== "blank";
+}
+
+/** 空白や、技の継続だけで相手も動いていない行は、前のターン番号に結合する。 */
+export function displayRows(stepsA: TimelineStep[], fastA: number, stepsB: TimelineStep[], fastB: number): DisplayRow[] {
+  const spansA = expandPlan(stepsA, fastA);
+  const spansB = expandPlan(stepsB, fastB);
+  const total = Math.max(planTurns(stepsA, fastA), planTurns(stepsB, fastB), 1);
+  const owns: boolean[] = [];
+  for (let turn = 1; turn <= total; turn += 1) {
+    const a = spansA.find((span) => turn >= span.startTurn && turn < span.startTurn + span.turns);
+    const b = spansB.find((span) => turn >= span.startTurn && turn < span.startTurn + span.turns);
+    owns.push(startsNumbered(a, turn) || startsNumbered(b, turn));
+  }
+  const rows: DisplayRow[] = [];
+  let label = 0;
+  for (let index = 0; index < owns.length; index += 1) {
+    if (!owns[index]) {
+      rows.push({ turn: index + 1, label: null, span: 0 });
+      continue;
+    }
+    label += 1;
+    let span = 1;
+    while (index + span < owns.length && !owns[index + span]) span += 1;
+    rows.push({ turn: index + 1, label, span });
+  }
+  return rows;
 }
 
 export function planFromEvents(

@@ -34,7 +34,7 @@ import {
 import { moveBonusEffectLines } from "../../lib/pogo/moveBonusEffect";
 import { TimelineOps, PlanPopup, ThrowPopup, chargedNameAt } from "./TimelineOps";
 import { TimelineCustom } from "./TimelineCustom";
-import { planFromEvents, type TimelineFix, type TimelineStep } from "../../lib/pogo/timelinePlan";
+import { planFromEvents, withSpecialBlanks, type TimelineFix, type TimelineStep } from "../../lib/pogo/timelinePlan";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
@@ -378,7 +378,7 @@ export function SimResearchPage() {
                     defense={fighterA.build.defense}
                     stamina={fighterA.build.stamina}
                     energy={result.energyA}
-                    hits={matchupMoveHits(fighterA.input, fighterB.input)}
+                    hits={matchupMoveHits(fighterA.input, fighterB.input, fighterA.thirdMove?.id ?? null)}
                   />
                   <MatchupSide
                     word={result.winner === "draw" ? null : result.winner === "b" ? "WIN" : "LOSE"}
@@ -389,7 +389,7 @@ export function SimResearchPage() {
                     defense={fighterB.build.defense}
                     stamina={fighterB.build.stamina}
                     energy={result.energyB}
-                    hits={matchupMoveHits(fighterB.input, fighterA.input)}
+                    hits={matchupMoveHits(fighterB.input, fighterA.input, fighterB.thirdMove?.id ?? null)}
                   />
                 </div>
                 <p className="note">{result.turns}ターン</p>
@@ -451,15 +451,17 @@ export function SimResearchPage() {
                 type="button"
                 className={`timeline-custom-open${sideA.timelineMode === "custom" ? " is-on" : ""}`}
                 onClick={() => {
+                  const fastA = Math.max(1, fighterA.input.fast.turns);
+                  const fastB = Math.max(1, fighterB.input.fast.turns);
                   setSideA((current) =>
-                    current.timelineMode === "custom" && current.timelinePlan
+                    current.timelinePlan
                       ? current
-                      : { ...current, timelineMode: "custom", timelinePlan: planFromEvents(result.timeline, "a") },
+                      : { ...current, timelinePlan: withSpecialBlanks(planFromEvents(result.timeline, "a"), fastB) },
                   );
                   setSideB((current) =>
-                    current.timelineMode === "custom" && current.timelinePlan
+                    current.timelinePlan
                       ? current
-                      : { ...current, timelineMode: "custom", timelinePlan: planFromEvents(result.timeline, "b") },
+                      : { ...current, timelinePlan: withSpecialBlanks(planFromEvents(result.timeline, "b"), fastA) },
                   );
                   setTimelineOpen(true);
                 }}
@@ -483,8 +485,31 @@ export function SimResearchPage() {
                   }}
                   chargeFill={typeChargeFill}
                   moveWash={typeWash}
-                  onChangeA={(plan) => setSideA((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
-                  onChangeB={(plan) => setSideB((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
+                  shieldsA={sideA.shieldSlots}
+                  shieldsB={sideB.shieldSlots}
+                  onToggleShield={(side, throwIndex) => {
+                    const apply = (current: SideState) => {
+                      const shieldSlots = moveShieldSlot(current.shieldSlots, throwIndex);
+                      return { ...current, shieldMode: "custom" as const, shieldSlots, shields: shieldSlots.length };
+                    };
+                    if (side === "a") setSideA(apply);
+                    else setSideB(apply);
+                    setShieldCustomActive(true);
+                  }}
+                  onChangeA={(plan, chargedMap) =>
+                    setSideA((current) => ({
+                      ...current,
+                      timelinePlan: plan,
+                      throwTweaks: chargedMap ? remapThrowTweaks(current.throwTweaks, chargedMap) : current.throwTweaks,
+                    }))
+                  }
+                  onChangeB={(plan, chargedMap) =>
+                    setSideB((current) => ({
+                      ...current,
+                      timelinePlan: plan,
+                      throwTweaks: chargedMap ? remapThrowTweaks(current.throwTweaks, chargedMap) : current.throwTweaks,
+                    }))
+                  }
                   onClose={(fix) => {
                     setSideA((current) => ({
                       ...current,
@@ -1145,9 +1170,10 @@ type MatchupHitRow = {
   percent: number;
   remainRatio: number;
   band: "low" | "mid" | "high";
+  third: boolean;
 };
 
-function matchupMoveHits(attacker: FighterInput, defender: FighterInput): MatchupHitRow[] {
+function matchupMoveHits(attacker: FighterInput, defender: FighterInput, thirdId: string | null): MatchupHitRow[] {
   const moves = [attacker.fast, ...attacker.charged];
   const seen = new Set<string>();
   const rows: MatchupHitRow[] = [];
@@ -1174,6 +1200,7 @@ function matchupMoveHits(attacker: FighterInput, defender: FighterInput): Matchu
       percent,
       remainRatio,
       band,
+      third: move.id === thirdId,
     });
   }
   return rows;
@@ -1202,6 +1229,8 @@ function MatchupSide({
 }) {
   const ratio = max > 0 ? hp / max : 0;
   const band = ratio <= 0.2 ? "low" : ratio <= 0.5 ? "mid" : "high";
+  const regular = hits.filter((row) => !row.third);
+  const third = hits.find((row) => row.third) ?? null;
   return (
     <div className="sim-matchup-side">
       <p className={word === "WIN" ? "sim-win" : word === "LOSE" ? "sim-lose" : "sim-draw"}>{word ?? "相打ち"}</p>
@@ -1238,40 +1267,46 @@ function MatchupSide({
         <i style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }} />
       </div>
       <p className="sim-gauge">ゲージ：{energy}</p>
-      <ul className={`sim-hit-list${hits.length ? "" : " is-empty"}`} aria-label={hits.length ? "技ダメージ" : undefined}>
-        {hits.length ? (
-          hits.map((row) => {
-            const lossRatio = Math.max(0, Math.min(1, 1 - row.remainRatio));
-            const remainPct = row.remainRatio * 100;
-            const lossPct = lossRatio * 100;
-            const onlyRemain = lossPct <= 0;
-            const onlyLoss = remainPct <= 0;
-            return (
-              <li key={row.id} className="sim-hit-row">
-                <div className="sim-hit-meta">
-                  <span className="sim-hit-name">{row.name}</span>
-                  <span className="sim-hit-val num">
-                    {row.damage}({row.percent.toFixed(1)}%)
-                  </span>
-                </div>
-                <div className="hp-track hp-track-hit" aria-hidden="true">
-                  {onlyLoss ? (
-                    <i className="hp-hit-lost is-full" style={{ width: "100%" }} />
-                  ) : (
-                    <>
-                      <i
-                        className={`hp-hit-remain is-${row.band}${onlyRemain ? " is-full" : ""}`}
-                        style={{ width: `${remainPct}%` }}
-                      />
-                      {lossPct > 0 ? <i className="hp-hit-lost" style={{ width: `${lossPct}%` }} /> : null}
-                    </>
-                  )}
-                </div>
-              </li>
-            );
-          })
-        ) : null}
+      <ul className={`sim-hit-list${regular.length ? "" : " is-empty"}`} aria-label={regular.length ? "技ダメージ" : undefined}>
+        {regular.map((row) => (
+          <li key={row.id}>
+            <HitMeter row={row} />
+          </li>
+        ))}
       </ul>
+      {third ? (
+        <div className="sim-hit-third">
+          <HitMeter row={third} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HitMeter({ row }: { row: MatchupHitRow }) {
+  const lossRatio = Math.max(0, Math.min(1, 1 - row.remainRatio));
+  const remainPct = row.remainRatio * 100;
+  const lossPct = lossRatio * 100;
+  const onlyRemain = lossPct <= 0;
+  const onlyLoss = remainPct <= 0;
+  return (
+    <div className="sim-hit-row">
+      <div className="sim-hit-meta">
+        <span className="sim-hit-name">{row.name}</span>
+        <span className="sim-hit-val num">
+          {row.damage}({row.percent.toFixed(1)}%)
+        </span>
+      </div>
+      <div className="hp-track hp-track-hit" aria-hidden="true">
+        {onlyLoss ? (
+          <i className="hp-hit-lost is-full" style={{ width: "100%" }} />
+        ) : (
+          <>
+            <i className={`hp-hit-remain is-${row.band}${onlyRemain ? " is-full" : ""}`} style={{ width: `${remainPct}%` }} />
+            {lossPct > 0 ? <i className="hp-hit-lost" style={{ width: `${lossPct}%` }} /> : null}
+          </>
+        )}
+      </div>
     </div>
   );
 }

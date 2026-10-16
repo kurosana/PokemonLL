@@ -421,7 +421,7 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
             };
           }
         } else if (step?.kind === "fast") {
-          const turns = Math.max(1, self.fast.turns);
+          const turns = Math.max(1, step.turns ?? self.fast.turns);
           self.action = {
             kind: "fast",
             move: self.fast,
