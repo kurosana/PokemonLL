@@ -34,7 +34,7 @@ import {
 import { moveBonusEffectLines } from "../../lib/pogo/moveBonusEffect";
 import { TimelineOps, PlanPopup, ThrowPopup, chargedNameAt } from "./TimelineOps";
 import { TimelineCustom } from "./TimelineCustom";
-import { planFromEvents, type TimelineStep } from "../../lib/pogo/timelinePlan";
+import { extendPlanFromTimeline, fillLaggingSide, type TimelineStep } from "../../lib/pogo/timelinePlan";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
@@ -440,16 +440,30 @@ export function SimResearchPage() {
                 type="button"
                 className={`timeline-custom-open${sideA.timelineMode === "custom" ? " is-on" : ""}`}
                 onClick={() => {
-                  setSideA((current) =>
-                    current.timelineMode === "custom" && current.timelinePlan
-                      ? current
-                      : { ...current, timelineMode: "custom", timelinePlan: planFromEvents(result.timeline, "a") },
+                  const nextA = extendPlanFromTimeline(
+                    sideA.timelineMode === "custom" ? sideA.timelinePlan : null,
+                    result.timeline,
+                    "a",
                   );
-                  setSideB((current) =>
-                    current.timelineMode === "custom" && current.timelinePlan
-                      ? current
-                      : { ...current, timelineMode: "custom", timelinePlan: planFromEvents(result.timeline, "b") },
+                  const nextB = extendPlanFromTimeline(
+                    sideB.timelineMode === "custom" ? sideB.timelinePlan : null,
+                    result.timeline,
+                    "b",
                   );
+                  const filled = fillLaggingSide(
+                    nextA,
+                    Math.max(1, fighterA.input.fast.turns),
+                    fighterA.input.fast.id,
+                    fighterA.input.fast.energyGain,
+                    fighterA.input.charged,
+                    nextB,
+                    Math.max(1, fighterB.input.fast.turns),
+                    fighterB.input.fast.id,
+                    fighterB.input.fast.energyGain,
+                    fighterB.input.charged,
+                  );
+                  setSideA((current) => ({ ...current, timelineMode: "custom", timelinePlan: filled.stepsA }));
+                  setSideB((current) => ({ ...current, timelineMode: "custom", timelinePlan: filled.stepsB }));
                   setTimelineOpen(true);
                 }}
               >

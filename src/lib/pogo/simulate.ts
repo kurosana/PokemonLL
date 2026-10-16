@@ -36,7 +36,7 @@ export type FighterInput = {
   throwTweaks?: (ThrowTweak | null)[] | null;
   /** 指定ターンに交代する。出てきたポケモンはそのターン技を出さない。シールドは引き継ぐ。 */
   switchPlan?: SwitchPlan | null;
-  /** タイムラインカスタム。ある側は、この順で技か待機を行う。 */
+  /** タイムラインカスタム。ある側は、この順で技か待機を行う。尽きたあとは最適で続ける。 */
   timelinePlan?: TimelineStep[] | null;
 };
 
@@ -72,6 +72,8 @@ export type TimelineEvent = {
   hpB: number;
   energyA: number;
   energyB: number;
+  /** タイムラインカスタムの手順から出た技。手順のあとの最適は false。 */
+  scripted: boolean;
 };
 
 export type SimResult = {
@@ -95,6 +97,7 @@ type Action = {
   id: number;
   startTurn: number;
   cct: boolean;
+  scripted: boolean;
 };
 
 type FighterState = FighterInput & {
@@ -406,36 +409,36 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         continue;
       }
       if (self.action) continue;
-      if (self.timelinePlan) {
+      if (self.timelinePlan && self.planIndex < self.timelinePlan.length) {
         const step = self.timelinePlan[self.planIndex];
-        if (step) {
-          self.planIndex += 1;
-          if (step.kind === "charged") {
-            const move = self.charged.find((item) => item.id === step.moveId);
-            if (move && self.energy >= move.energy) {
-              self.farmed = 0;
-              self.action = {
-                kind: "charged",
-                move,
-                turnsLeft: 1,
-                totalTurns: 1,
-                id: nextActionId++,
-                startTurn: turn,
-                cct: false,
-              };
-            }
-          } else if (step.kind === "fast") {
-            const turns = stepDuration(step, Math.max(1, self.fast.turns));
+        self.planIndex += 1;
+        if (step?.kind === "charged") {
+          const move = self.charged.find((item) => item.id === step.moveId);
+          if (move && self.energy >= move.energy) {
+            self.farmed = 0;
             self.action = {
-              kind: "fast",
-              move: self.fast,
-              turnsLeft: turns,
-              totalTurns: turns,
+              kind: "charged",
+              move,
+              turnsLeft: 1,
+              totalTurns: 1,
               id: nextActionId++,
               startTurn: turn,
               cct: false,
+              scripted: true,
             };
           }
+        } else if (step?.kind === "fast") {
+          const turns = stepDuration(step, Math.max(1, self.fast.turns));
+          self.action = {
+            kind: "fast",
+            move: self.fast,
+            turnsLeft: turns,
+            totalTurns: turns,
+            id: nextActionId++,
+            startTurn: turn,
+            cct: false,
+            scripted: true,
+          };
         }
         continue;
       }
@@ -450,6 +453,7 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
           id: nextActionId++,
           startTurn: turn,
           cct: false,
+          scripted: false,
         };
       } else {
         if (charged) self.farmed += 1;
@@ -463,6 +467,7 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
           id: nextActionId++,
           startTurn: turn,
           cct: Boolean(charged),
+          scripted: false,
         };
       }
     }
@@ -568,6 +573,7 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         cct: action.cct,
         throwIndex: action.kind === "charged" ? dealt[fighter.id].throwIndex : null,
         moveId: action.move.id,
+        scripted: action.scripted,
         ...snap,
       });
     }
