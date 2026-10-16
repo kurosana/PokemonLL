@@ -82,6 +82,29 @@ export function moveStep(steps: TimelineStep[], from: number, insertAt: number) 
   return next;
 }
 
+/**
+ * その時点のゲージで撃てないスペシャルアタックの手順番号。
+ * ノーマルアタックが終わったときにチャージし、上限は100。足りない技は消費しない。
+ */
+export function shortChargedIndexes(steps: TimelineStep[], energyGain: number, energyCost: (moveId: string) => number) {
+  const short = new Set<number>();
+  let energy = 0;
+  steps.forEach((step, index) => {
+    if (step.kind === "fast") {
+      energy = Math.min(100, energy + Math.max(0, energyGain));
+      return;
+    }
+    if (step.kind !== "charged") return;
+    const cost = energyCost(step.moveId);
+    if (energy < cost) {
+      short.add(index);
+      return;
+    }
+    energy -= cost;
+  });
+  return short;
+}
+
 export function planFromEvents(
   events: { turn: number; actor: "a" | "b"; kind: "fast" | "charged"; moveId: string; actionId: number }[],
   actor: "a" | "b",

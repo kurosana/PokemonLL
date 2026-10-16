@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { PvpMove } from "../../lib/pogo/combat";
 import {
@@ -7,6 +7,7 @@ import {
   insertStep,
   moveStep,
   planTurns,
+  shortChargedIndexes,
   type TimelineSpan,
   type TimelineStep,
 } from "../../lib/pogo/timelinePlan";
@@ -123,16 +124,38 @@ export function TimelineCustom({
   const sessionRef = useRef<Session | null>(null);
   const [insertTurn, setInsertTurn] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [closeWarned, setCloseWarned] = useState(false);
+  const shortA = useMemo(
+    () => shortChargedIndexes(sideA.plan, sideA.fast.energyGain, (moveId) => sideA.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY),
+    [sideA],
+  );
+  const shortB = useMemo(
+    () => shortChargedIndexes(sideB.plan, sideB.fast.energyGain, (moveId) => sideB.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY),
+    [sideB],
+  );
+  const hasShort = shortA.size > 0 || shortB.size > 0;
+
+  const tryClose = () => {
+    if (hasShort) {
+      setCloseWarned(true);
+      return;
+    }
+    onClose();
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (insertTurn != null) setInsertTurn(null);
-      else onClose();
+      else tryClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [insertTurn, onClose]);
+  }, [hasShort, insertTurn, onClose]);
+
+  useEffect(() => {
+    if (!hasShort) setCloseWarned(false);
+  }, [hasShort]);
 
   const change = (side: "a" | "b", plan: TimelineStep[]) => {
     if (side === "a") onChangeA(plan);
@@ -303,7 +326,7 @@ export function TimelineCustom({
 
   return createPortal(
     <div className="search-overlay is-centered timeline-custom-overlay" role="dialog" aria-modal="true" aria-label="タイムラインカスタム">
-      <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
+      <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={tryClose} />
       <div className="search-overlay-panel sim-plan-panel timeline-custom-panel">
         <h2 className="shield-panel-title">タイムラインカスタム</h2>
         <p className="timeline-custom-hint">
@@ -322,6 +345,7 @@ export function TimelineCustom({
                       turn={turn}
                       span={cellA}
                       fastCount={cellA ? fastCountAt(sideA.plan, cellA.stepIndex) : null}
+                      short={Boolean(cellA && shortA.has(cellA.stepIndex))}
                       fast={sideA.fast}
                       charged={sideA.charged}
                       moveWash={moveWash}
@@ -347,6 +371,7 @@ export function TimelineCustom({
                       turn={turn}
                       span={cellB}
                       fastCount={cellB ? fastCountAt(sideB.plan, cellB.stepIndex) : null}
+                      short={Boolean(cellB && shortB.has(cellB.stepIndex))}
                       fast={sideB.fast}
                       charged={sideB.charged}
                       moveWash={moveWash}
@@ -359,8 +384,9 @@ export function TimelineCustom({
             </tbody>
           </table>
         </div>
-        <div className="sim-iv-actions">
-          <button type="button" className="btn btn-primary" onClick={onClose}>
+        <div className="sim-iv-actions timeline-custom-actions">
+          {closeWarned && hasShort ? <p className="timeline-close-warn">ゲージの足りないスペシャルアタックがあります</p> : null}
+          <button type="button" className="btn btn-primary" onClick={tryClose}>
             閉じる
           </button>
         </div>
@@ -400,6 +426,7 @@ function SideCells({
   turn,
   span,
   fastCount,
+  short,
   fast,
   charged,
   moveWash,
@@ -410,6 +437,7 @@ function SideCells({
   turn: number;
   span: TimelineSpan | null;
   fastCount: number | null;
+  short: boolean;
   fast: PvpMove;
   charged: PvpMove[];
   moveWash: (type: string) => string;
@@ -433,7 +461,8 @@ function SideCells({
   const step = span.step;
   const move = step.kind === "charged" ? charged.find((item) => item.id === step.moveId) : step.kind === "fast" ? fast : null;
   const name = step.kind === "wait" ? "待機" : (move?.name ?? "技");
-  const wash = move ? moveWash(move.type) : undefined;
+  const roomy = span.turns >= 2;
+  const wash = short || !move ? undefined : moveWash(move.type);
   const grip = (
     <td className="tl-grip" rowSpan={span.turns} data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="grip">
       <button
@@ -463,23 +492,40 @@ function SideCells({
       ×
     </button>
   );
+  const count = fastCount != null ? <span className="num move-dmg">{fastCount}</span> : null;
   const moveCell = (
     <td
-      className={`move${step.kind === "wait" ? " is-wait" : ""}`}
+      className={`move${step.kind === "wait" ? " is-wait" : ""}${short ? " is-short" : ""}`}
       rowSpan={span.turns}
       data-tl-side={side}
       data-tl-step={span.stepIndex}
       data-tl-part="move"
       style={wash ? { background: wash } : undefined}
     >
-      <span className={`move-label${side === "b" ? " is-foe" : ""}`}>
-        {side === "a" ? remove : null}
-        <span className="move-line-main">
+      {roomy ? (
+        <span className="move-label is-roomy">
           <span className="move-name">{name}</span>
-          {fastCount != null ? <span className="num move-dmg">{fastCount}</span> : null}
+          <span className="move-line-sub">
+            {side === "a" ? remove : null}
+            {count}
+            {side === "b" ? remove : null}
+          </span>
         </span>
-        {side === "b" ? remove : null}
-      </span>
+      ) : (
+        <span className={`move-label${side === "b" ? " is-foe" : ""}`}>
+          {side === "a" ? remove : null}
+          <span className="move-line-main">
+            <span className="move-name">{name}</span>
+            {count}
+          </span>
+          {side === "b" ? remove : null}
+        </span>
+      )}
+      {short ? (
+        <span className="timeline-energy-mark" aria-label="ゲージが足りません">
+          !
+        </span>
+      ) : null}
     </td>
   );
   return side === "a" ? (
