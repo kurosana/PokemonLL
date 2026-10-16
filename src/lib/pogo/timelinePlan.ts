@@ -231,6 +231,72 @@ export function moveStep(steps: TimelineStep[], from: number, insertAt: number) 
   return next;
 }
 
+export type FillMove = { id: string; energy: number };
+
+function coveredEnd(spans: TimelineSpan[]) {
+  let end = 0;
+  for (const span of spans) end = Math.max(end, span.startTurn + span.turns - 1);
+  return end;
+}
+
+function energyAfter(spans: TimelineSpan[], gain: number, cost: (moveId: string) => number) {
+  let energy = 0;
+  for (const span of spans) {
+    if (span.step.kind === "fast") energy = Math.min(100, energy + Math.max(0, gain));
+    else if (span.step.kind === "charged") {
+      const price = cost(span.step.moveId);
+      if (energy >= price) energy -= price;
+    }
+  }
+  return energy;
+}
+
+function nextFill(energy: number, charged: FillMove[], fastId: string, fastTurns: number, gap: number): TimelineStep | null {
+  const main = charged[0];
+  const affordable = charged.filter((move) => move.energy > 0 && energy >= move.energy);
+  const chosen = main && main.energy > 0 && energy >= main.energy ? main : affordable[0];
+  if (chosen) return { kind: "charged", moveId: chosen.id };
+  if (gap >= Math.max(1, fastTurns)) return { kind: "fast", moveId: fastId };
+  return null;
+}
+
+/**
+ * 片方の手順だけ短いとき、もう片方の最後のターンまで技を足す。
+ * ゲージが足りればスペシャル。足りなければノーマル。複数ターンのノーマルは、空きがその長さになってから置く。
+ */
+export function fillLaggingSide(
+  stepsA: TimelineStep[],
+  fastA: number,
+  fastIdA: string,
+  gainA: number,
+  chargedA: FillMove[],
+  stepsB: TimelineStep[],
+  fastB: number,
+  fastIdB: string,
+  gainB: number,
+  chargedB: FillMove[],
+) {
+  let nextA = stepsA.slice();
+  let nextB = stepsB.slice();
+  const costA = (moveId: string) => chargedA.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
+  const costB = (moveId: string) => chargedB.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
+  for (let guard = 0; guard < 240; guard += 1) {
+    const aligned = alignPlans(nextA, fastA, nextB, fastB);
+    const endA = coveredEnd(aligned.a.spans);
+    const endB = coveredEnd(aligned.b.spans);
+    if (endA === endB) break;
+    const lagA = endA < endB;
+    const gap = Math.abs(endB - endA);
+    const step = lagA
+      ? nextFill(energyAfter(aligned.a.spans, gainA, costA), chargedA, fastIdA, fastA, gap)
+      : nextFill(energyAfter(aligned.b.spans, gainB, costB), chargedB, fastIdB, fastB, gap);
+    if (!step) break;
+    if (lagA) nextA = [...nextA, step];
+    else nextB = [...nextB, step];
+  }
+  return { stepsA: nextA, stepsB: nextB };
+}
+
 export function planFromEvents(
   events: { turn: number; actor: "a" | "b"; kind: "fast" | "charged"; moveId: string; actionId: number }[],
   actor: "a" | "b",
@@ -245,4 +311,18 @@ export function planFromEvents(
     else steps.push({ kind: "fast", moveId: event.moveId });
   }
   return steps;
+}
+
+/** いまの手順のうしろに、最適で続いた技を足す。手順が無いときは、対戦の技を全部手順にする。 */
+export function extendPlanFromTimeline(
+  plan: TimelineStep[] | null,
+  events: { turn: number; actor: "a" | "b"; kind: "fast" | "charged"; moveId: string; actionId: number; scripted?: boolean }[],
+  actor: "a" | "b",
+) {
+  if (!plan) return planFromEvents(events, actor);
+  const tail = planFromEvents(
+    events.filter((event) => event.scripted === false),
+    actor,
+  );
+  return tail.length ? [...plan, ...tail] : plan;
 }

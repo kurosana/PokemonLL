@@ -4,6 +4,7 @@ import type { PvpMove } from "../../lib/pogo/combat";
 import {
   alignPlans,
   deleteStep,
+  fillLaggingSide,
   insertAtTurn,
   moveStep,
   type TimelineSpan,
@@ -393,8 +394,20 @@ export function TimelineCustom({
           chargeFill={chargeFill}
           onPick={(side, step) => {
             const placed = insertAtTurn(sideA.plan, fastTurnsA, sideB.plan, fastTurnsB, side, insertTurn, step);
-            change("a", placed.stepsA);
-            change("b", placed.stepsB);
+            const filled = fillLaggingSide(
+              placed.stepsA,
+              fastTurnsA,
+              sideA.fast.id,
+              sideA.fast.energyGain,
+              sideA.charged,
+              placed.stepsB,
+              fastTurnsB,
+              sideB.fast.id,
+              sideB.fast.energyGain,
+              sideB.charged,
+            );
+            change("a", filled.stepsA);
+            change("b", filled.stepsB);
             setInsertTurn(null);
           }}
           onClose={() => setInsertTurn(null)}
