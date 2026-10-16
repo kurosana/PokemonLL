@@ -3679,19 +3679,15 @@ button.shield-corner.is-selected {
   margin-top: -0.45rem;
 }
 
-.search-overlay.is-centered .search-overlay-panel.timeline-custom-panel {
-  width: min(60rem, calc(100dvw - 2rem));
-  min-width: 0;
-  max-width: 60rem;
+.timeline-custom-panel {
+  width: min(48rem, 100%);
   max-height: min(100dvh - 2rem, 48rem);
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 0.65rem;
-  overflow: hidden;
 }
 
 .timeline-custom-hint {
   margin: 0;
-  min-height: max-content;
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 700;
@@ -3718,129 +3714,26 @@ button.shield-corner.is-selected {
   border-spacing: 0;
 }
 
-.timeline-custom-sheet col.col-grip {
-  width: 1.7rem;
-}
-
-.timeline-custom-sheet col.col-turn {
-  width: 15%;
-}
-
-.timeline-custom-sheet tr {
-  height: 2rem;
-}
-
 .timeline-custom-sheet td {
-  box-sizing: border-box;
   height: 2rem;
   min-height: 2rem;
 }
 
-.timeline-custom-sheet td.move {
-  position: relative;
-  vertical-align: middle;
-}
-
-.timeline-custom-sheet td.move.is-short,
-.timeline-custom-sheet td.move.is-void,
-.timeline-custom-sheet td.move.is-blank {
-  background: #d5dbe2;
-  color: #7d8b98;
-}
-
-.timeline-shield {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 1.7rem;
-  height: 1.7rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  filter: grayscale(1);
-  opacity: 0.55;
-}
-
-.timeline-shield.is-on {
-  filter: none;
-  opacity: 1;
-}
-
-.timeline-shield img {
-  width: 1.35rem;
-  height: 1.35rem;
-  object-fit: contain;
-  pointer-events: none;
-}
-
-.timeline-custom-sheet .move-label.is-roomy {
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.08rem;
-}
-
-.timeline-custom-sheet .move-line-sub {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.28rem;
-}
-
-.timeline-energy-mark {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 1.35rem;
-  height: 1.35rem;
-  border-radius: 999px;
-  background: var(--bad);
-  color: #fff;
-  font-size: 0.86rem;
-  font-weight: 800;
-  line-height: 1;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.timeline-custom-actions {
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.timeline-close-warn {
-  margin: 0;
-  color: var(--bad);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.timeline-custom-sheet .move-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.28rem;
-  width: 100%;
-  min-width: 0;
-}
-
+.timeline-custom-sheet .tl-x,
 .timeline-custom-sheet .tl-grip {
-  width: 1.8rem;
+  width: 2rem;
   padding: 0;
   background: #fff;
 }
 
+.timeline-custom-sheet .timeline-x,
 .timeline-custom-sheet .timeline-grip,
 .timeline-custom-sheet .timeline-turn-btn {
   display: grid;
   place-items: center;
   width: 100%;
   height: 100%;
-  min-height: 0;
+  min-height: 2rem;
   margin: 0;
   padding: 0;
   border: 0;
@@ -3853,24 +3746,9 @@ button.shield-corner.is-selected {
 }
 
 .timeline-custom-sheet .timeline-x {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 1.35rem;
-  height: 1.35rem;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
   color: #8d4d46;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: 1.15rem;
   line-height: 1;
-  cursor: pointer;
-  touch-action: manipulation;
 }
 
 .timeline-custom-sheet .timeline-grip {
@@ -3889,9 +3767,8 @@ button.shield-corner.is-selected {
   font-size: 0.72rem;
 }
 
-.timeline-custom-sheet td.move.is-wait,
-.timeline-custom-sheet td.move.is-shield {
-  background: #fff;
+.timeline-custom-sheet td.move.is-wait {
+  background: var(--surface-alt);
   color: #4d5d6c;
 }
 
@@ -3904,11 +3781,9 @@ button.shield-corner.is-selected {
   z-index: 2;
 }
 
-.search-overlay.is-centered .search-overlay-panel.timeline-insert-panel {
-  width: min(42rem, calc(100dvw - 2rem));
-  min-width: 0;
+.timeline-insert-panel {
+  width: min(36rem, 100%);
   grid-template-rows: auto auto auto;
-  overflow: auto;
 }
 
 .timeline-insert-grid {

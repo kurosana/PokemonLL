@@ -34,7 +34,7 @@ import {
 import { moveBonusEffectLines } from "../../lib/pogo/moveBonusEffect";
 import { TimelineOps, PlanPopup, ThrowPopup, chargedNameAt } from "./TimelineOps";
 import { TimelineCustom } from "./TimelineCustom";
-import { planFromEvents, withSpecialBlanks, type TimelineFix, type TimelineStep } from "../../lib/pogo/timelinePlan";
+import { planFromEvents, type TimelineStep } from "../../lib/pogo/timelinePlan";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
@@ -122,17 +122,6 @@ function blankSlots() {
 
 function blankTweaks() {
   return [null, null, null, null, null, null] as ({ buff: boolean; damagePercent: number } | null)[];
-}
-
-function remapThrowTweaks(
-  tweaks: ReturnType<typeof blankTweaks>,
-  chargedMap: TimelineFix["chargedMapA"],
-) {
-  const next = blankTweaks();
-  chargedMap.forEach((oldOrdinal, newOrdinal) => {
-    if (newOrdinal < next.length) next[newOrdinal] = tweaks[oldOrdinal] ?? null;
-  });
-  return next;
 }
 
 function clearPlans(side: SideState): SideState {
@@ -451,17 +440,15 @@ export function SimResearchPage() {
                 type="button"
                 className={`timeline-custom-open${sideA.timelineMode === "custom" ? " is-on" : ""}`}
                 onClick={() => {
-                  const fastA = Math.max(1, fighterA.input.fast.turns);
-                  const fastB = Math.max(1, fighterB.input.fast.turns);
                   setSideA((current) =>
-                    current.timelinePlan
+                    current.timelineMode === "custom" && current.timelinePlan
                       ? current
-                      : { ...current, timelinePlan: withSpecialBlanks(planFromEvents(result.timeline, "a"), fastB) },
+                      : { ...current, timelineMode: "custom", timelinePlan: planFromEvents(result.timeline, "a") },
                   );
                   setSideB((current) =>
-                    current.timelinePlan
+                    current.timelineMode === "custom" && current.timelinePlan
                       ? current
-                      : { ...current, timelinePlan: withSpecialBlanks(planFromEvents(result.timeline, "b"), fastA) },
+                      : { ...current, timelineMode: "custom", timelinePlan: planFromEvents(result.timeline, "b") },
                   );
                   setTimelineOpen(true);
                 }}
@@ -485,46 +472,9 @@ export function SimResearchPage() {
                   }}
                   chargeFill={typeChargeFill}
                   moveWash={typeWash}
-                  shieldsA={sideA.shieldSlots}
-                  shieldsB={sideB.shieldSlots}
-                  onToggleShield={(side, throwIndex) => {
-                    const apply = (current: SideState) => {
-                      const shieldSlots = moveShieldSlot(current.shieldSlots, throwIndex);
-                      return { ...current, shieldMode: "custom" as const, shieldSlots, shields: shieldSlots.length };
-                    };
-                    if (side === "a") setSideA(apply);
-                    else setSideB(apply);
-                    setShieldCustomActive(true);
-                  }}
-                  onChangeA={(plan, chargedMap) =>
-                    setSideA((current) => ({
-                      ...current,
-                      timelinePlan: plan,
-                      throwTweaks: chargedMap ? remapThrowTweaks(current.throwTweaks, chargedMap) : current.throwTweaks,
-                    }))
-                  }
-                  onChangeB={(plan, chargedMap) =>
-                    setSideB((current) => ({
-                      ...current,
-                      timelinePlan: plan,
-                      throwTweaks: chargedMap ? remapThrowTweaks(current.throwTweaks, chargedMap) : current.throwTweaks,
-                    }))
-                  }
-                  onClose={(fix) => {
-                    setSideA((current) => ({
-                      ...current,
-                      timelineMode: "custom",
-                      timelinePlan: fix.stepsA,
-                      throwTweaks: remapThrowTweaks(current.throwTweaks, fix.chargedMapA),
-                    }));
-                    setSideB((current) => ({
-                      ...current,
-                      timelineMode: "custom",
-                      timelinePlan: fix.stepsB,
-                      throwTweaks: remapThrowTweaks(current.throwTweaks, fix.chargedMapB),
-                    }));
-                    setTimelineOpen(false);
-                  }}
+                  onChangeA={(plan) => setSideA((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
+                  onChangeB={(plan) => setSideB((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
+                  onClose={() => setTimelineOpen(false)}
                 />
               ) : null}
               {planEditor ? (
