@@ -14,7 +14,7 @@ const ADMIN_SESSION = "pokemonll.admin.v1";
 const SAVED_TEXT = "この端末に保存しました。GitHubへの送信はまだ繋がっていません。";
 
 type TabId = "pokemon" | "move";
-type MoveKind = "fast" | "charged";
+type MoveKind = "fast" | "charged" | "third";
 
 type PickedPokemon = {
   pokemonId: number;
@@ -191,6 +191,7 @@ function PokemonEditor({ bundle, onSaved }: { bundle: PvpBundle; onSaved: () => 
   const [target, setTarget] = useState<PvpPokemonRecord | null>(null);
   const [fast, setFast] = useState<string[]>([]);
   const [charged, setCharged] = useState<string[]>([]);
+  const [third, setThird] = useState<string | null>(null);
   const [addKind, setAddKind] = useState<MoveKind | null>(null);
   const [pendingRemove, setPendingRemove] = useState<{ kind: MoveKind; id: string } | null>(null);
   const [status, setStatus] = useState("");
@@ -203,12 +204,14 @@ function PokemonEditor({ bundle, onSaved }: { bundle: PvpBundle; onSaved: () => 
       setTarget(null);
       setFast([]);
       setCharged([]);
+      setThird(null);
       return;
     }
     const record = findPvpPokemon(current, picked.pokemonId, picked.form);
     setTarget(record);
     setFast(record ? [...record.fast] : []);
     setCharged(record ? [...record.charged] : []);
+    setThird(record?.third ?? null);
     setStatus("");
   }, [picked, pickedKey, ready]);
 
@@ -219,6 +222,11 @@ function PokemonEditor({ bundle, onSaved }: { bundle: PvpBundle; onSaved: () => 
     const kind = addKind;
     setAddKind(null);
     if (!kind) return;
+    if (kind === "third") {
+      setThird(move.id);
+      setStatus(`サードアタックを「${move.name}」にしました。下の保存でこの端末に残します。`);
+      return;
+    }
     const list = kind === "fast" ? fast : charged;
     if (list.includes(move.id)) {
       setStatus(`「${move.name}」はすでに入っています。`);
@@ -233,6 +241,7 @@ function PokemonEditor({ bundle, onSaved }: { bundle: PvpBundle; onSaved: () => 
     if (!pendingRemove) return;
     const { kind, id } = pendingRemove;
     if (kind === "fast") setFast(fast.filter((item) => item !== id));
+    else if (kind === "third") setThird(null);
     else setCharged(charged.filter((item) => item !== id));
     setPendingRemove(null);
     setStatus(`「${removeName}」を外しました。下の保存でこの端末に残します。`);
@@ -240,7 +249,7 @@ function PokemonEditor({ bundle, onSaved }: { bundle: PvpBundle; onSaved: () => 
 
   return (
     <div className="admin-editor">
-      <p className="note">×で外す前に確認します。＋追加は、その列の技だけを検索します。</p>
+      <p className="note">×で外す前に確認します。＋追加は、その列の技だけを検索します。サードアタックは1つまでです。</p>
       <button
         type="button"
         className="identity-pick"
@@ -306,6 +315,14 @@ function PokemonEditor({ bundle, onSaved }: { bundle: PvpBundle; onSaved: () => 
             onRemove={(id) => setPendingRemove({ kind: "charged", id })}
             onAdd={() => setAddKind("charged")}
           />
+          <MoveColumn
+            title="サードアタック"
+            ids={third ? [third] : []}
+            moves={moves}
+            onRemove={(id) => setPendingRemove({ kind: "third", id })}
+            onAdd={() => setAddKind("third")}
+            single
+          />
         </div>
       ) : null}
 
@@ -327,6 +344,7 @@ function PokemonEditor({ bundle, onSaved }: { bundle: PvpBundle; onSaved: () => 
           store.learnsets[learnsetKey(target.pokemonId, target.form)] = {
             fast: [...fast],
             charged: [...charged],
+            third,
           };
           saveMoveEdits(store);
           setStatus(SAVED_TEXT);
@@ -360,12 +378,14 @@ function MoveColumn({
   moves,
   onRemove,
   onAdd,
+  single = false,
 }: {
   title: string;
   ids: string[];
   moves: Record<string, PvpMove>;
   onRemove: (id: string) => void;
   onAdd: () => void;
+  single?: boolean;
 }) {
   return (
     <section className="move-column">
@@ -384,7 +404,7 @@ function MoveColumn({
         })}
         <li>
           <button type="button" className="move-add" onClick={onAdd}>
-            ＋追加
+            {single && ids.length > 0 ? "変更" : "＋追加"}
           </button>
         </li>
       </ul>

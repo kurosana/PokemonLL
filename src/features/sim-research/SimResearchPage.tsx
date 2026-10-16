@@ -5,6 +5,7 @@ import { LeagueIconButton } from "../../components/LeagueIconButton";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
 import { PokemonLabelFit } from "../../components/PokemonLabelFit";
 import { damageForMove, type PvpMove } from "../../lib/pogo/combat";
+import { MEGA_LEVELS, readMegaLevel, scaleThirdAttack, type MegaLevel } from "../../lib/pogo/megaLevel";
 import { bestMoves } from "../../lib/pogo/moveScore";
 import { findPvpPokemon, resolveMoves } from "../../lib/pogo/pvpBundle";
 import {
@@ -33,7 +34,7 @@ import {
 import { moveBonusEffectLines } from "../../lib/pogo/moveBonusEffect";
 import { TimelineOps, PlanPopup, ThrowPopup, chargedNameAt } from "./TimelineOps";
 import { TimelineCustom } from "./TimelineCustom";
-import { planFromEvents, type TimelineStep } from "../../lib/pogo/timelinePlan";
+import { planFromEvents, type TimelineFix, type TimelineStep } from "../../lib/pogo/timelinePlan";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
@@ -73,6 +74,8 @@ export type SideState = {
   fastId: string;
   chargedId: string;
   chargedId2: string;
+  /** サードアタックの威力倍率。1=1.0、2=1.1、3=1.2、4=1.3。 */
+  megaLevel: MegaLevel;
   shields: number;
   timing: ChargeTiming;
   moveMode: "optimal" | "custom";
@@ -100,6 +103,7 @@ const emptySide: SideState = {
   fastId: "",
   chargedId: "",
   chargedId2: "",
+  megaLevel: 1,
   shields: 0,
   timing: "cct",
   moveMode: "optimal",
@@ -118,6 +122,17 @@ function blankSlots() {
 
 function blankTweaks() {
   return [null, null, null, null, null, null] as ({ buff: boolean; damagePercent: number } | null)[];
+}
+
+function remapThrowTweaks(
+  tweaks: ReturnType<typeof blankTweaks>,
+  chargedMap: TimelineFix["chargedMapA"],
+) {
+  const next = blankTweaks();
+  chargedMap.forEach((oldOrdinal, newOrdinal) => {
+    if (newOrdinal < next.length) next[newOrdinal] = tweaks[oldOrdinal] ?? null;
+  });
+  return next;
 }
 
 function clearPlans(side: SideState): SideState {
@@ -470,7 +485,21 @@ export function SimResearchPage() {
                   moveWash={typeWash}
                   onChangeA={(plan) => setSideA((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
                   onChangeB={(plan) => setSideB((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
-                  onClose={() => setTimelineOpen(false)}
+                  onClose={(fix) => {
+                    setSideA((current) => ({
+                      ...current,
+                      timelineMode: "custom",
+                      timelinePlan: fix.stepsA,
+                      throwTweaks: remapThrowTweaks(current.throwTweaks, fix.chargedMapA),
+                    }));
+                    setSideB((current) => ({
+                      ...current,
+                      timelineMode: "custom",
+                      timelinePlan: fix.stepsB,
+                      throwTweaks: remapThrowTweaks(current.throwTweaks, fix.chargedMapB),
+                    }));
+                    setTimelineOpen(false);
+                  }}
                 />
               ) : null}
               {planEditor ? (
@@ -656,9 +685,14 @@ function packFighter(
   const chargedMoves = resolveMoves(data.bundle, pvp.charged);
   const fast = fasts.find((move) => move.id === side.fastId) ?? fasts[0];
   if (!fast) return null;
+  const thirdBase = pvp.third ? (data.bundle.moves[pvp.third] ?? null) : null;
   const charged = [side.chargedId, side.chargedId2]
     .map((id) => chargedMoves.find((move) => move.id === id) ?? null)
-    .filter((move): move is PvpMove => Boolean(move));
+    .filter((move): move is PvpMove => Boolean(move))
+    .map((move) => (thirdBase && move.id === thirdBase.id ? scaleThirdAttack(thirdBase, side.megaLevel) : move));
+  if (thirdBase && !charged.some((move) => move.id === thirdBase.id)) {
+    charged.push(scaleThirdAttack(thirdBase, side.megaLevel));
+  }
   const scale = levelScale(cpData, side.maxLevel);
   const build = findMaxLevelBuild(entry, side.atkIv, side.defIv, side.staIv, scale.levels, scale.byLevel, cap);
   if (!build) return null;
@@ -679,7 +713,7 @@ function packFighter(
     shieldThrows: side.shieldMode === "custom" && shieldCustomActive ? side.shieldSlots : null,
     throwTweaks: side.throwTweaks,
   };
-  return { name: side.label || entry.pokemon_name, pvp, build, fasts, chargedMoves, input };
+  return { name: side.label || entry.pokemon_name, pvp, build, fasts, chargedMoves, thirdMove: thirdBase, input };
 }
 
 function FighterCard({
@@ -707,6 +741,7 @@ function FighterCard({
   const fastValue = fasts.some((move) => move.id === side.fastId) ? side.fastId : (fasts[0]?.id ?? "");
   const chargedValue = chargedMoves.some((move) => move.id === side.chargedId) ? side.chargedId : (chargedMoves[0]?.id ?? "");
   const charged2Value = chargedMoves.some((move) => move.id === side.chargedId2) ? side.chargedId2 : "";
+  const thirdMove = packed?.thirdMove ?? null;
   const stats = packed?.build;
   const types = packed?.pvp.types ?? [];
   const typeStyle: CSSProperties | undefined = types.length
@@ -756,6 +791,7 @@ function FighterCard({
               fastId: rankedFast[0]?.id ?? "",
               chargedId: rankedCharged[0]?.id ?? "",
               chargedId2: rankedCharged[1]?.id ?? "",
+              megaLevel: 1,
               maxLevel: 51,
               atkIv: best?.atkIv ?? current.atkIv,
               defIv: best?.defIv ?? current.defIv,
@@ -850,6 +886,28 @@ function FighterCard({
           ))}
         </select>
       </label>
+      {thirdMove ? (
+        <div className="sim-third-row">
+          <label className="field">
+            <span className="field-label">サードアタック</span>
+            <span className="input sim-third-name">{thirdMove.name}</span>
+          </label>
+          <label className="field sim-mega-level">
+            <span className="field-label">メガレベル</span>
+            <select
+              className="input"
+              value={side.megaLevel}
+              onChange={(event) => onChange({ ...side, megaLevel: readMegaLevel(event.target.value) })}
+            >
+              {MEGA_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
         </>
       ) : null}
     </section>

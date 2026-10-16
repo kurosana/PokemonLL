@@ -28,6 +28,8 @@ export type SpeciesGroup = {
   entries: PogoStatRecord[];
   /** 検索でフォルムやメガを分けて出すときの表示名。 */
   label?: string;
+  /** 表示名とは別の呼び方。メガ○○ で ○○(メガ) を出すために使う。 */
+  aliases?: string[];
   exactSprite?: boolean;
   spriteSuffix?: number | null;
 };

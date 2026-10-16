@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import type { EvolutionData } from "../../lib/pogo/evolutionLine";
+import { applyKu6Learnsets, applyMegaPokemon, type SheetCatalog } from "../../lib/pogo/ku6Learnsets";
 import { applyMoveEdits, loadMoveEdits, subscribeMoveEdits } from "../../lib/pogo/moveEdits";
-import { applyKu6Learnsets, type SheetCatalog } from "../../lib/pogo/ku6Learnsets";
 import type { PvpBundle } from "../../lib/pogo/pvpBundle";
 import {
   buildCpMultiplierMap,
@@ -28,20 +29,23 @@ export function useResearchData() {
       setError(null);
       setData(null);
       try {
-        const [statsRes, cpmRes, bundleRes, catalogRes] = await Promise.all([
+        const [statsRes, cpmRes, bundleRes, catalogRes, evoRes] = await Promise.all([
           fetch("/data/pokemon_stats.json"),
           fetch("/data/cp_multiplier.json"),
           fetch("/data/pvp_bundle.json"),
           fetch("/data/sheet_catalog.json"),
+          fetch("/data/pokemon_evolutions.json"),
         ]);
-        if (!statsRes.ok || !cpmRes.ok || !bundleRes.ok || !catalogRes.ok) {
+        if (!statsRes.ok || !cpmRes.ok || !bundleRes.ok || !catalogRes.ok || !evoRes.ok) {
           throw new Error("data fetch failed");
         }
         const stats = (await statsRes.json()) as PogoStatRecord[];
         const multipliers = (await cpmRes.json()) as CpMultiplierRecord[];
         let bundle = (await bundleRes.json()) as PvpBundle;
         const catalog = (await catalogRes.json()) as SheetCatalog;
+        const evolutions = (await evoRes.json()) as EvolutionData;
         bundle = applyKu6Learnsets(bundle, catalog, stats);
+        bundle = applyMegaPokemon(bundle, catalog, evolutions.megas ?? []);
         if (!cancelled) setData({ stats, multipliers, bundle });
       } catch {
         if (!cancelled) setError("研究データの読み込みに失敗しました。");
