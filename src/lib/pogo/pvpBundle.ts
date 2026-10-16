@@ -7,6 +7,8 @@ export type PvpPokemonRecord = {
   types: string[];
   fast: string[];
   charged: string[];
+  /** メガシンカ中のサードアタック。スペシャルアタック2枠とは別。 */
+  third?: string | null;
 };
 
 export type PvpBundle = {

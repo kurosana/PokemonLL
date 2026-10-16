@@ -9,6 +9,8 @@ export type MoveStatPatch = {
 export type LearnsetPatch = {
   fast: string[];
   charged: string[];
+  /** 未指定の古い保存は、表から入ったサードアタックを残す。 */
+  third?: string | null;
 };
 
 export type MoveEditStore = {
@@ -78,6 +80,7 @@ export function applyMoveEdits(bundle: PvpBundle, edits: MoveEditStore): PvpBund
       ...entry,
       fast: [...patch.fast],
       charged: [...patch.charged],
+      third: patch.third !== undefined ? patch.third : (entry.third ?? null),
     };
   });
 
