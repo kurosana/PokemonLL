@@ -4,7 +4,7 @@
  */
 import { damageForMove, type PvpMove } from "./combat";
 import { resolveThrowTweak } from "./moveBonusEffect";
-import { locateTurn, type TimelineStep } from "./timelinePlan";
+import { stepDuration, type TimelineStep } from "./timelinePlan";
 
 export type ChargeTiming = "asap" | "cct";
 export type FighterId = "a" | "b";
@@ -104,6 +104,8 @@ type FighterState = FighterInput & {
   attackStage: number;
   defenseStage: number;
   action: Action | null;
+  /** タイムラインカスタムの次の手順。 */
+  planIndex: number;
   /** ゲージが足りてから、まだ撃たずに通したノーマルアタックの数。 */
   farmed: number;
   thrown: number;
@@ -294,6 +296,7 @@ function createFighter(id: FighterId, input: FighterInput): FighterState {
     attackStage: 0,
     defenseStage: 0,
     action: null,
+    planIndex: 0,
     farmed: 0,
     thrown: 0,
     received: 0,
@@ -404,33 +407,35 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
       }
       if (self.action) continue;
       if (self.timelinePlan) {
-        const planned = locateTurn(self.timelinePlan, Math.max(1, self.fast.turns), turn);
-        const step = planned?.offset === 0 ? planned.step : null;
-        if (step?.kind === "charged") {
-          const move = self.charged.find((item) => item.id === step.moveId);
-          if (move && self.energy >= move.energy) {
-            self.farmed = 0;
+        const step = self.timelinePlan[self.planIndex];
+        if (step) {
+          self.planIndex += 1;
+          if (step.kind === "charged") {
+            const move = self.charged.find((item) => item.id === step.moveId);
+            if (move && self.energy >= move.energy) {
+              self.farmed = 0;
+              self.action = {
+                kind: "charged",
+                move,
+                turnsLeft: 1,
+                totalTurns: 1,
+                id: nextActionId++,
+                startTurn: turn,
+                cct: false,
+              };
+            }
+          } else if (step.kind === "fast") {
+            const turns = stepDuration(step, Math.max(1, self.fast.turns));
             self.action = {
-              kind: "charged",
-              move,
-              turnsLeft: 1,
-              totalTurns: 1,
+              kind: "fast",
+              move: self.fast,
+              turnsLeft: turns,
+              totalTurns: turns,
               id: nextActionId++,
               startTurn: turn,
               cct: false,
             };
           }
-        } else if (step?.kind === "fast") {
-          const turns = Math.max(1, self.fast.turns);
-          self.action = {
-            kind: "fast",
-            move: self.fast,
-            turnsLeft: turns,
-            totalTurns: turns,
-            id: nextActionId++,
-            startTurn: turn,
-            cct: false,
-          };
         }
         continue;
       }
