@@ -218,8 +218,13 @@ export function SimResearchPage() {
     });
   };
 
-  const toggleShieldPin = () => {
-    setShieldPinned((current) => !current);
+  const toggleShieldPin = (fromDock = false) => {
+    setShieldPinned((current) => {
+      if (current && fromDock) {
+        window.setTimeout(() => inlinePinRef.current?.focus({ preventScroll: true }), 0);
+      }
+      return !current;
+    });
   };
 
   const setDockNode = useCallback((node: HTMLDivElement | null) => {
@@ -384,7 +389,7 @@ export function SimResearchPage() {
                     grid={grid}
                     pinned={shieldPinned}
                     pinRef={inlinePinRef}
-                    onTogglePin={toggleShieldPin}
+                    onTogglePin={() => toggleShieldPin(false)}
                     onSelect={selectShields}
                     customActive={shieldCustomActive}
                     onCustom={selectShieldCustom}
@@ -400,7 +405,7 @@ export function SimResearchPage() {
                     sideB={sideB}
                     grid={grid}
                     pinned={shieldPinned}
-                    onTogglePin={toggleShieldPin}
+                    onTogglePin={() => toggleShieldPin(true)}
                     onSelect={selectShields}
                     customActive={shieldCustomActive}
                     onCustom={selectShieldCustom}
@@ -614,7 +619,7 @@ function ShieldGridView({
             <span>×{shieldsA}</span>
           </span>,
           ...row.map((cell, shieldsB) => {
-                        const selected = !customActive && sideA.shields === shieldsA && sideB.shields === shieldsB;
+            const selected = !customActive && sideA.shields === shieldsA && sideB.shields === shieldsB;
             const tone = cell.rating > 100 ? "win" : cell.rating < 100 ? "lose" : "draw";
             return (
               <button
