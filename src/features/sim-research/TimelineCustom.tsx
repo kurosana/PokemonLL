@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { createPortal } from "react-dom";
 import type { PvpMove } from "../../lib/pogo/combat";
 import {
+  correctTimeline,
   deleteStep,
   expandPlan,
   insertStep,
+  inspectTimeline,
   moveStep,
   planTurns,
-  shortChargedIndexes,
+  type TimelineFix,
   type TimelineSpan,
   type TimelineStep,
 } from "../../lib/pogo/timelinePlan";
@@ -118,29 +120,30 @@ export function TimelineCustom({
   moveWash: (type: string) => string;
   onChangeA: (plan: TimelineStep[]) => void;
   onChangeB: (plan: TimelineStep[]) => void;
-  onClose: () => void;
+  onClose: (fix: TimelineFix) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<Session | null>(null);
   const [insertTurn, setInsertTurn] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
   const [closeWarned, setCloseWarned] = useState(false);
-  const shortA = useMemo(
-    () => shortChargedIndexes(sideA.plan, sideA.fast.energyGain, (moveId) => sideA.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY),
-    [sideA],
-  );
-  const shortB = useMemo(
-    () => shortChargedIndexes(sideB.plan, sideB.fast.energyGain, (moveId) => sideB.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY),
-    [sideB],
-  );
-  const hasShort = shortA.size > 0 || shortB.size > 0;
+  const fastTurnsA = Math.max(1, sideA.fast.turns);
+  const fastTurnsB = Math.max(1, sideB.fast.turns);
+  const view = useMemo(() => {
+    const costA = (moveId: string) => sideA.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
+    const costB = (moveId: string) => sideB.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
+    return inspectTimeline(sideA.plan, fastTurnsA, sideA.fast.energyGain, costA, sideB.plan, fastTurnsB, sideB.fast.energyGain, costB);
+  }, [fastTurnsA, fastTurnsB, sideA, sideB]);
+  const hasShort = view.a.marks.includes("short") || view.b.marks.includes("short");
 
   const tryClose = () => {
     if (hasShort) {
       setCloseWarned(true);
       return;
     }
-    onClose();
+    const costA = (moveId: string) => sideA.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
+    const costB = (moveId: string) => sideB.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
+    onClose(correctTimeline(sideA.plan, fastTurnsA, sideA.fast.energyGain, costA, sideB.plan, fastTurnsB, sideB.fast.energyGain, costB));
   };
 
   useEffect(() => {
@@ -317,8 +320,6 @@ export function TimelineCustom({
     window.addEventListener("pointercancel", onUp);
   };
 
-  const fastTurnsA = Math.max(1, sideA.fast.turns);
-  const fastTurnsB = Math.max(1, sideB.fast.turns);
   const spansA = spansOf(sideA.plan, fastTurnsA);
   const spansB = spansOf(sideB.plan, fastTurnsB);
   const total = Math.max(planTurns(sideA.plan, fastTurnsA), planTurns(sideB.plan, fastTurnsB), 1);
@@ -330,7 +331,7 @@ export function TimelineCustom({
       <div className="search-overlay-panel sim-plan-panel timeline-custom-panel">
         <h2 className="shield-panel-title">タイムラインカスタム</h2>
         <p className="timeline-custom-hint">
-          真ん中のターン数をタップすると、その位置に技や待機を追加できます。持ち手を長押しすると、その技を上下に並べ替えられます。
+          真ん中のターン数をタップすると、その位置に技や待機を追加できます。持ち手を長押しすると、その技を上下に並べ替えられます。対戦の規則で使えない技はグレーになり、閉じると自動で外します。
         </p>
         <div ref={scrollRef} className={`timeline-custom-scroll${dragging ? " is-dragging" : ""}`}>
           <table className="battle-sheet timeline-custom-sheet" aria-label="タイムラインの編集">
@@ -344,8 +345,9 @@ export function TimelineCustom({
                       side="a"
                       turn={turn}
                       span={cellA}
-                      fastCount={cellA ? fastCountAt(sideA.plan, cellA.stepIndex) : null}
-                      short={Boolean(cellA && shortA.has(cellA.stepIndex))}
+                      fastCount={cellA ? view.a.fastCounts[cellA.stepIndex] : null}
+                      short={Boolean(cellA && view.a.marks[cellA.stepIndex] === "short")}
+                      voided={Boolean(cellA && view.a.marks[cellA.stepIndex] === "void")}
                       fast={sideA.fast}
                       charged={sideA.charged}
                       moveWash={moveWash}
@@ -370,8 +372,9 @@ export function TimelineCustom({
                       side="b"
                       turn={turn}
                       span={cellB}
-                      fastCount={cellB ? fastCountAt(sideB.plan, cellB.stepIndex) : null}
-                      short={Boolean(cellB && shortB.has(cellB.stepIndex))}
+                      fastCount={cellB ? view.b.fastCounts[cellB.stepIndex] : null}
+                      short={Boolean(cellB && view.b.marks[cellB.stepIndex] === "short")}
+                      voided={Boolean(cellB && view.b.marks[cellB.stepIndex] === "void")}
                       fast={sideB.fast}
                       charged={sideB.charged}
                       moveWash={moveWash}
@@ -411,22 +414,13 @@ export function TimelineCustom({
   );
 }
 
-function fastCountAt(steps: TimelineStep[], index: number) {
-  let count = 0;
-  for (let cursor = 0; cursor <= index && cursor < steps.length; cursor += 1) {
-    const step = steps[cursor];
-    if (step.kind === "charged") count = 0;
-    else if (step.kind === "fast") count += 1;
-  }
-  return steps[index]?.kind === "fast" ? count : null;
-}
-
 function SideCells({
   side,
   turn,
   span,
   fastCount,
   short,
+  voided,
   fast,
   charged,
   moveWash,
@@ -438,6 +432,7 @@ function SideCells({
   span: TimelineSpan | null;
   fastCount: number | null;
   short: boolean;
+  voided: boolean;
   fast: PvpMove;
   charged: PvpMove[];
   moveWash: (type: string) => string;
@@ -462,7 +457,7 @@ function SideCells({
   const move = step.kind === "charged" ? charged.find((item) => item.id === step.moveId) : step.kind === "fast" ? fast : null;
   const name = step.kind === "wait" ? "待機" : (move?.name ?? "技");
   const roomy = span.turns >= 2;
-  const wash = short || !move ? undefined : moveWash(move.type);
+  const wash = short || voided || !move ? undefined : moveWash(move.type);
   const grip = (
     <td className="tl-grip" rowSpan={span.turns} data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="grip">
       <button
@@ -495,7 +490,7 @@ function SideCells({
   const count = fastCount != null ? <span className="num move-dmg">{fastCount}</span> : null;
   const moveCell = (
     <td
-      className={`move${step.kind === "wait" ? " is-wait" : ""}${short ? " is-short" : ""}`}
+      className={`move${step.kind === "wait" ? " is-wait" : ""}${short ? " is-short" : ""}${voided ? " is-void" : ""}`}
       rowSpan={span.turns}
       data-tl-side={side}
       data-tl-step={span.stepIndex}

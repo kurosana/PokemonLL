@@ -33,7 +33,7 @@ import {
 import { moveBonusEffectLines } from "../../lib/pogo/moveBonusEffect";
 import { TimelineOps, PlanPopup, ThrowPopup, chargedNameAt } from "./TimelineOps";
 import { TimelineCustom } from "./TimelineCustom";
-import { planFromEvents, type TimelineStep } from "../../lib/pogo/timelinePlan";
+import { planFromEvents, type TimelineFix, type TimelineStep } from "../../lib/pogo/timelinePlan";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
@@ -118,6 +118,17 @@ function blankSlots() {
 
 function blankTweaks() {
   return [null, null, null, null, null, null] as ({ buff: boolean; damagePercent: number } | null)[];
+}
+
+function remapThrowTweaks(
+  tweaks: ReturnType<typeof blankTweaks>,
+  chargedMap: TimelineFix["chargedMapA"],
+) {
+  const next = blankTweaks();
+  chargedMap.forEach((oldOrdinal, newOrdinal) => {
+    if (newOrdinal < next.length) next[newOrdinal] = tweaks[oldOrdinal] ?? null;
+  });
+  return next;
 }
 
 function clearPlans(side: SideState): SideState {
@@ -470,7 +481,21 @@ export function SimResearchPage() {
                   moveWash={typeWash}
                   onChangeA={(plan) => setSideA((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
                   onChangeB={(plan) => setSideB((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
-                  onClose={() => setTimelineOpen(false)}
+                  onClose={(fix) => {
+                    setSideA((current) => ({
+                      ...current,
+                      timelineMode: "custom",
+                      timelinePlan: fix.stepsA,
+                      throwTweaks: remapThrowTweaks(current.throwTweaks, fix.chargedMapA),
+                    }));
+                    setSideB((current) => ({
+                      ...current,
+                      timelineMode: "custom",
+                      timelinePlan: fix.stepsB,
+                      throwTweaks: remapThrowTweaks(current.throwTweaks, fix.chargedMapB),
+                    }));
+                    setTimelineOpen(false);
+                  }}
                 />
               ) : null}
               {planEditor ? (

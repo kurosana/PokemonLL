@@ -3672,7 +3672,8 @@ button.shield-corner.is-selected {
   vertical-align: middle;
 }
 
-.timeline-custom-sheet td.move.is-short {
+.timeline-custom-sheet td.move.is-short,
+.timeline-custom-sheet td.move.is-void {
   background: #d5dbe2;
   color: #7d8b98;
 }
