@@ -32,6 +32,8 @@ import {
 } from "../../lib/pogo/simulate";
 import { moveBonusEffectLines } from "../../lib/pogo/moveBonusEffect";
 import { TimelineOps, PlanPopup, ThrowPopup, chargedNameAt } from "./TimelineOps";
+import { TimelineCustom } from "./TimelineCustom";
+import { planFromEvents, type TimelineStep } from "../../lib/pogo/timelinePlan";
 import { IvBars } from "../shared/IvBars";
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
@@ -81,6 +83,8 @@ export type SideState = {
   shieldSlots: number[];
   throwTweaks: ({ buff: boolean; damagePercent: number } | null)[];
   applyChanceBuffs: boolean;
+  timelineMode: "optimal" | "custom";
+  timelinePlan: TimelineStep[] | null;
 };
 
 const emptySide: SideState = {
@@ -104,6 +108,8 @@ const emptySide: SideState = {
   shieldSlots: [],
   throwTweaks: [null, null, null, null, null, null],
   applyChanceBuffs: false,
+  timelineMode: "optimal",
+  timelinePlan: null,
 };
 
 function blankSlots() {
@@ -122,6 +128,8 @@ function clearPlans(side: SideState): SideState {
     shieldMode: "optimal",
     shieldSlots: [],
     throwTweaks: blankTweaks(),
+    timelineMode: "optimal",
+    timelinePlan: null,
   };
 }
 
@@ -167,6 +175,7 @@ export function SimResearchPage() {
   const [shieldCustomActive, setShieldCustomActive] = useState(false);
   const [planEditor, setPlanEditor] = useState<null | { kind: "move" | "shield"; side: "a" | "b" }>(null);
   const [throwEditor, setThrowEditor] = useState<null | { side: "a" | "b"; index: number }>(null);
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const inlinePinRef = useRef<HTMLButtonElement>(null);
   const dockObserver = useRef<ResizeObserver | null>(null);
 
@@ -418,7 +427,47 @@ export function SimResearchPage() {
                   onCharged={(side, index) => setThrowEditor({ side, index })}
                 />
               </section>
+              <button
+                type="button"
+                className={`timeline-custom-open${sideA.timelineMode === "custom" ? " is-on" : ""}`}
+                onClick={() => {
+                  setSideA((current) =>
+                    current.timelineMode === "custom" && current.timelinePlan
+                      ? current
+                      : { ...current, timelineMode: "custom", timelinePlan: planFromEvents(result.timeline, "a") },
+                  );
+                  setSideB((current) =>
+                    current.timelineMode === "custom" && current.timelinePlan
+                      ? current
+                      : { ...current, timelineMode: "custom", timelinePlan: planFromEvents(result.timeline, "b") },
+                  );
+                  setTimelineOpen(true);
+                }}
+              >
+                タイムラインカスタム
+              </button>
               </div>
+              {timelineOpen && sideA.timelinePlan && sideB.timelinePlan ? (
+                <TimelineCustom
+                  sideA={{
+                    label: sideA.label,
+                    fast: fighterA.input.fast,
+                    charged: fighterA.input.charged,
+                    plan: sideA.timelinePlan,
+                  }}
+                  sideB={{
+                    label: sideB.label,
+                    fast: fighterB.input.fast,
+                    charged: fighterB.input.charged,
+                    plan: sideB.timelinePlan,
+                  }}
+                  chargeFill={typeChargeFill}
+                  moveWash={typeWash}
+                  onChangeA={(plan) => setSideA((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
+                  onChangeB={(plan) => setSideB((current) => ({ ...current, timelineMode: "custom", timelinePlan: plan }))}
+                  onClose={() => setTimelineOpen(false)}
+                />
+              ) : null}
               {planEditor ? (
                 <PlanPopup
                   kind={planEditor.kind}
@@ -621,6 +670,7 @@ function packFighter(
     timing: side.timing,
     applyChanceBuffs: side.applyChanceBuffs,
     chargedQueue: side.moveMode === "custom" ? side.moveSlots : null,
+    timelinePlan: side.timelineMode === "custom" ? side.timelinePlan : null,
     shieldThrows: side.shieldMode === "custom" && shieldCustomActive ? side.shieldSlots : null,
     throwTweaks: side.throwTweaks,
   };

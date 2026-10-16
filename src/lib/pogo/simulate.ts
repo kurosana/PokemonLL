@@ -4,6 +4,7 @@
  */
 import { damageForMove, type PvpMove } from "./combat";
 import { resolveThrowTweak } from "./moveBonusEffect";
+import { locateTurn, type TimelineStep } from "./timelinePlan";
 
 export type ChargeTiming = "asap" | "cct";
 export type FighterId = "a" | "b";
@@ -35,6 +36,8 @@ export type FighterInput = {
   throwTweaks?: (ThrowTweak | null)[] | null;
   /** 指定ターンに交代する。出てきたポケモンはそのターン技を出さない。シールドは引き継ぐ。 */
   switchPlan?: SwitchPlan | null;
+  /** タイムラインカスタム。ある側は、この順で技か待機を行う。 */
+  timelinePlan?: TimelineStep[] | null;
 };
 
 export type SwitchPlan = {
@@ -356,11 +359,11 @@ function preferDefender(next: SimResult, current: SimResult) {
 
 /**
  * 最適側だけ、今の相手条件で技を1種類に決める。
- * カスタム順がある側、候補が1つ以下の側は入力のまま固定する。
+ * タイムライン手順、技選択のカスタム順、候補が1つ以下の側は入力のまま固定する。
  * 片方のカスタムは、もう片方の最適探索を止めない。
  */
 function moveChoices(input: FighterInput): FighterInput[] {
-  if (input.chargedQueue || input.charged.length <= 1) return [input];
+  if (input.timelinePlan || input.chargedQueue || input.charged.length <= 1) return [input];
   return input.charged.map((move) => ({ ...input, charged: [move], chargedQueue: null }));
 }
 
@@ -400,6 +403,37 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         continue;
       }
       if (self.action) continue;
+      if (self.timelinePlan) {
+        const planned = locateTurn(self.timelinePlan, Math.max(1, self.fast.turns), turn);
+        const step = planned?.offset === 0 ? planned.step : null;
+        if (step?.kind === "charged") {
+          const move = self.charged.find((item) => item.id === step.moveId);
+          if (move && self.energy >= move.energy) {
+            self.farmed = 0;
+            self.action = {
+              kind: "charged",
+              move,
+              turnsLeft: 1,
+              totalTurns: 1,
+              id: nextActionId++,
+              startTurn: turn,
+              cct: false,
+            };
+          }
+        } else if (step?.kind === "fast") {
+          const turns = Math.max(1, self.fast.turns);
+          self.action = {
+            kind: "fast",
+            move: self.fast,
+            turnsLeft: turns,
+            totalTurns: turns,
+            id: nextActionId++,
+            startTurn: turn,
+            cct: false,
+          };
+        }
+        continue;
+      }
       const charged = pickCharged(self, other);
       if (charged && shouldThrow(self, other, charged)) {
         self.farmed = 0;
