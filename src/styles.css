@@ -3668,7 +3668,57 @@ button.shield-corner.is-selected {
 }
 
 .timeline-custom-sheet td.move {
+  position: relative;
   vertical-align: middle;
+}
+
+.timeline-custom-sheet td.move.is-short {
+  background: #d5dbe2;
+  color: #7d8b98;
+}
+
+.timeline-custom-sheet .move-label.is-roomy {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.08rem;
+}
+
+.timeline-custom-sheet .move-line-sub {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+}
+
+.timeline-energy-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.timeline-custom-actions {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.timeline-close-warn {
+  margin: 0;
+  color: var(--bad);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .timeline-custom-sheet .move-label {
