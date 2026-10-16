@@ -3,12 +3,12 @@ import { createPortal } from "react-dom";
 import type { PvpMove } from "../../lib/pogo/combat";
 import {
   correctTimeline,
-  deleteStep,
+  displayRows,
   expandPlan,
-  insertStep,
+  holdAsBlank,
   inspectTimeline,
   moveStep,
-  planTurns,
+  placeStep,
   type TimelineFix,
   type TimelineSpan,
   type TimelineStep,
@@ -110,6 +110,9 @@ export function TimelineCustom({
   sideB,
   chargeFill,
   moveWash,
+  shieldsA,
+  shieldsB,
+  onToggleShield,
   onChangeA,
   onChangeB,
   onClose,
@@ -118,13 +121,16 @@ export function TimelineCustom({
   sideB: SideEdit;
   chargeFill: (type: string) => string;
   moveWash: (type: string) => string;
-  onChangeA: (plan: TimelineStep[]) => void;
-  onChangeB: (plan: TimelineStep[]) => void;
+  shieldsA: number[];
+  shieldsB: number[];
+  onToggleShield: (side: "a" | "b", throwIndex: number) => void;
+  onChangeA: (plan: TimelineStep[], chargedMap?: number[]) => void;
+  onChangeB: (plan: TimelineStep[], chargedMap?: number[]) => void;
   onClose: (fix: TimelineFix) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<Session | null>(null);
-  const [insertTurn, setInsertTurn] = useState<number | null>(null);
+  const [insertAt, setInsertAt] = useState<{ turn: number; span: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [closeWarned, setCloseWarned] = useState(false);
   const fastTurnsA = Math.max(1, sideA.fast.turns);
@@ -149,20 +155,20 @@ export function TimelineCustom({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (insertTurn != null) setInsertTurn(null);
+      if (insertAt != null) setInsertAt(null);
       else tryClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hasShort, insertTurn, onClose]);
+  }, [hasShort, insertAt, onClose]);
 
   useEffect(() => {
     if (!hasShort) setCloseWarned(false);
   }, [hasShort]);
 
-  const change = (side: "a" | "b", plan: TimelineStep[]) => {
-    if (side === "a") onChangeA(plan);
-    else onChangeB(plan);
+  const change = (side: "a" | "b", plan: TimelineStep[], chargedMap?: number[]) => {
+    if (side === "a") onChangeA(plan, chargedMap);
+    else onChangeB(plan, chargedMap);
   };
 
   const applySession = (session: Session, followFinger: boolean) => {
@@ -322,8 +328,7 @@ export function TimelineCustom({
 
   const spansA = spansOf(sideA.plan, fastTurnsA);
   const spansB = spansOf(sideB.plan, fastTurnsB);
-  const total = Math.max(planTurns(sideA.plan, fastTurnsA), planTurns(sideB.plan, fastTurnsB), 1);
-  const rows = Array.from({ length: total }, (_, index) => index + 1);
+  const shown = displayRows(sideA.plan, fastTurnsA, sideB.plan, fastTurnsB);
 
   return createPortal(
     <div className="search-overlay is-centered timeline-custom-overlay" role="dialog" aria-modal="true" aria-label="タイムラインカスタム">
@@ -331,54 +336,74 @@ export function TimelineCustom({
       <div className="search-overlay-panel sim-plan-panel timeline-custom-panel">
         <h2 className="shield-panel-title">タイムラインカスタム</h2>
         <p className="timeline-custom-hint">
-          真ん中のターン数をタップすると、その位置に技や待機を追加できます。持ち手を長押しすると、その技を上下に並べ替えられます。対戦の規則で使えない技はグレーになり、閉じると自動で外します。
+          真ん中のターン数をタップすると、その位置の空白に技が入ります。空白が無いときは、そのターンへ割って入ります。×は技を消し、その枠はグレーの空白のまま残します。スペシャルの相手側にある盾をタップすると、その技にシールドを使います。
         </p>
         <div ref={scrollRef} className={`timeline-custom-scroll${dragging ? " is-dragging" : ""}`}>
           <table className="battle-sheet timeline-custom-sheet" aria-label="タイムラインの編集">
             <tbody>
-              {rows.map((turn) => {
-                const cellA = spanAt(spansA, turn);
-                const cellB = spanAt(spansB, turn);
+              {shown.map((row) => {
+                const cellA = spanAt(spansA, row.turn);
+                const cellB = spanAt(spansB, row.turn);
                 return (
-                  <tr key={turn}>
+                  <tr key={row.turn}>
                     <SideCells
                       side="a"
-                      turn={turn}
+                      turn={row.turn}
                       span={cellA}
-                      fastCount={cellA ? view.a.fastCounts[cellA.stepIndex] : null}
-                      short={Boolean(cellA && view.a.marks[cellA.stepIndex] === "short")}
-                      voided={Boolean(cellA && view.a.marks[cellA.stepIndex] === "void")}
+                      fastCount={cellA && row.turn === cellA.startTurn ? view.a.fastCounts[cellA.stepIndex] : null}
+                      short={Boolean(cellA && row.turn === cellA.startTurn && view.a.marks[cellA.stepIndex] === "short")}
+                      voided={Boolean(cellA && row.turn === cellA.startTurn && view.a.marks[cellA.stepIndex] === "void")}
                       fast={sideA.fast}
                       charged={sideA.charged}
                       moveWash={moveWash}
-                      onDelete={(index) => change("a", deleteStep(sideA.plan, index))}
+                      shieldIndex={shieldIndex(sideB.plan, cellB, row.turn)}
+                      shieldOn={shieldsA.includes(shieldIndex(sideB.plan, cellB, row.turn) ?? -1)}
+                      onToggleShield={() => {
+                        const index = shieldIndex(sideB.plan, cellB, row.turn);
+                        if (index != null) onToggleShield("a", index);
+                      }}
+                      onDelete={(index) => {
+                        const held = holdAsBlank(sideA.plan, index, fastTurnsA);
+                        change("a", held.steps, held.chargedMap);
+                      }}
                       onGripDown={onGripDown}
                     />
-                    <td className="turn">
-                      <button
-                        type="button"
-                        className="timeline-turn-btn"
-                        aria-label={`${turn}ターンに追加`}
-                        onPointerDown={(event) => {
-                          if (event.button !== 0) return;
-                          watchTap(event, () => setInsertTurn(turn));
-                        }}
-                        onClick={(event) => event.preventDefault()}
-                      >
-                        {turn}
-                      </button>
-                    </td>
+                    {row.label != null ? (
+                      <td className="turn" rowSpan={row.span}>
+                        <button
+                          type="button"
+                          className="timeline-turn-btn"
+                          aria-label={`${row.label}ターンに追加`}
+                          onPointerDown={(event) => {
+                            if (event.button !== 0) return;
+                            watchTap(event, () => setInsertAt({ turn: row.turn, span: row.span }));
+                          }}
+                          onClick={(event) => event.preventDefault()}
+                        >
+                          {row.label}
+                        </button>
+                      </td>
+                    ) : null}
                     <SideCells
                       side="b"
-                      turn={turn}
+                      turn={row.turn}
                       span={cellB}
-                      fastCount={cellB ? view.b.fastCounts[cellB.stepIndex] : null}
-                      short={Boolean(cellB && view.b.marks[cellB.stepIndex] === "short")}
-                      voided={Boolean(cellB && view.b.marks[cellB.stepIndex] === "void")}
+                      fastCount={cellB && row.turn === cellB.startTurn ? view.b.fastCounts[cellB.stepIndex] : null}
+                      short={Boolean(cellB && row.turn === cellB.startTurn && view.b.marks[cellB.stepIndex] === "short")}
+                      voided={Boolean(cellB && row.turn === cellB.startTurn && view.b.marks[cellB.stepIndex] === "void")}
                       fast={sideB.fast}
                       charged={sideB.charged}
                       moveWash={moveWash}
-                      onDelete={(index) => change("b", deleteStep(sideB.plan, index))}
+                      shieldIndex={shieldIndex(sideA.plan, cellA, row.turn)}
+                      shieldOn={shieldsB.includes(shieldIndex(sideA.plan, cellA, row.turn) ?? -1)}
+                      onToggleShield={() => {
+                        const index = shieldIndex(sideA.plan, cellA, row.turn);
+                        if (index != null) onToggleShield("b", index);
+                      }}
+                      onDelete={(index) => {
+                        const held = holdAsBlank(sideB.plan, index, fastTurnsB);
+                        change("b", held.steps, held.chargedMap);
+                      }}
                       onGripDown={onGripDown}
                     />
                   </tr>
@@ -394,23 +419,54 @@ export function TimelineCustom({
           </button>
         </div>
       </div>
-      {insertTurn != null ? (
+      {insertAt != null ? (
         <InsertPopup
-          turn={insertTurn}
+          turn={shown.find((row) => row.turn === insertAt.turn)?.label ?? insertAt.turn}
           sideA={sideA}
           sideB={sideB}
           chargeFill={chargeFill}
           onPick={(side, step) => {
             const edit = side === "a" ? sideA : sideB;
             const turns = Math.max(1, edit.fast.turns);
-            change(side, insertStep(edit.plan, turns, insertTurn, step));
-            setInsertTurn(null);
+            const placed = placeStep(edit.plan, turns, insertAt.turn, insertAt.span, step);
+            change(side, placed.steps, placed.chargedMap);
+            setInsertAt(null);
           }}
-          onClose={() => setInsertTurn(null)}
+          onClose={() => setInsertAt(null)}
         />
       ) : null}
     </div>,
     document.body,
+  );
+}
+
+const SHIELD_SRC = "/Image/sozai/shield-ui.png";
+
+function shieldIndex(steps: TimelineStep[], span: TimelineSpan | null, turn: number) {
+  if (!span || span.startTurn !== turn || span.step.kind !== "charged") return null;
+  let count = 0;
+  for (let index = 0; index < span.stepIndex; index += 1) {
+    if (steps[index]?.kind === "charged") count += 1;
+  }
+  return count;
+}
+
+function ShieldToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      className={`timeline-shield${on ? " is-on" : ""}`}
+      aria-pressed={on}
+      aria-label={on ? "この技のシールドを外す" : "この技にシールドを使う"}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+        watchTap(event, onToggle);
+      }}
+      onClick={(event) => event.preventDefault()}
+    >
+      <img src={SHIELD_SRC} alt="" />
+    </button>
   );
 }
 
@@ -424,6 +480,9 @@ function SideCells({
   fast,
   charged,
   moveWash,
+  shieldIndex: incomingShield,
+  shieldOn,
+  onToggleShield,
   onDelete,
   onGripDown,
 }: {
@@ -436,30 +495,65 @@ function SideCells({
   fast: PvpMove;
   charged: PvpMove[];
   moveWash: (type: string) => string;
+  shieldIndex: number | null;
+  shieldOn: boolean;
+  onToggleShield: () => void;
   onDelete: (index: number) => void;
   onGripDown: (side: "a" | "b", index: number, event: ReactPointerEvent<HTMLButtonElement>) => void;
 }) {
-  if (span && turn !== span.startTurn) return null;
-  if (!span) {
+  const shield = incomingShield != null ? <ShieldToggle on={shieldOn} onToggle={onToggleShield} /> : null;
+  const held = Boolean(span && (turn !== span.startTurn || span.step.kind === "blank"));
+  if (!span || held) {
+    const tagged = Boolean(span && span.step.kind === "blank" && turn === span.startTurn);
+    const grip = (
+      <td
+        className="tl-grip"
+        {...(tagged
+          ? { "data-tl-side": side, "data-tl-step": span?.stepIndex, "data-tl-part": "grip" }
+          : {})}
+      >
+        {tagged ? (
+          <button
+            type="button"
+            className="timeline-grip"
+            aria-label="空白を並べ替え"
+            onPointerDown={(event) => onGripDown(side, span?.stepIndex ?? 0, event)}
+            onClick={(event) => event.preventDefault()}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            <GripIcon />
+          </button>
+        ) : null}
+      </td>
+    );
+    const moveCell = (
+      <td
+        className={`move is-blank${shield ? " has-shield" : ""}`}
+        {...(tagged
+          ? { "data-tl-side": side, "data-tl-step": span?.stepIndex, "data-tl-part": "move" }
+          : {})}
+      >
+        {shield}
+      </td>
+    );
     return side === "a" ? (
       <>
-        <td className="tl-grip" />
-        <td className="move is-empty" />
+        {grip}
+        {moveCell}
       </>
     ) : (
       <>
-        <td className="move is-empty" />
-        <td className="tl-grip" />
+        {moveCell}
+        {grip}
       </>
     );
   }
   const step = span.step;
   const move = step.kind === "charged" ? charged.find((item) => item.id === step.moveId) : step.kind === "fast" ? fast : null;
   const name = step.kind === "wait" ? "待機" : (move?.name ?? "技");
-  const roomy = span.turns >= 2;
   const wash = short || voided || !move ? undefined : moveWash(move.type);
   const grip = (
-    <td className="tl-grip" rowSpan={span.turns} data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="grip">
+    <td className="tl-grip" data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="grip">
       <button
         type="button"
         className="timeline-grip"
@@ -490,32 +584,22 @@ function SideCells({
   const count = fastCount != null ? <span className="num move-dmg">{fastCount}</span> : null;
   const moveCell = (
     <td
-      className={`move${step.kind === "wait" ? " is-wait" : ""}${short ? " is-short" : ""}${voided ? " is-void" : ""}`}
-      rowSpan={span.turns}
+      className={`move${step.kind === "wait" ? " is-wait" : ""}${short ? " is-short" : ""}${voided ? " is-void" : ""}${shield ? " has-shield" : ""}`}
       data-tl-side={side}
       data-tl-step={span.stepIndex}
       data-tl-part="move"
       style={wash ? { background: wash } : undefined}
     >
-      {roomy ? (
-        <span className="move-label is-roomy">
+      <span className={`move-label${side === "b" ? " is-foe" : ""}`}>
+        {side === "a" ? remove : null}
+        {side === "b" ? shield : null}
+        <span className="move-line-main">
           <span className="move-name">{name}</span>
-          <span className="move-line-sub">
-            {side === "a" ? remove : null}
-            {count}
-            {side === "b" ? remove : null}
-          </span>
+          {count}
         </span>
-      ) : (
-        <span className={`move-label${side === "b" ? " is-foe" : ""}`}>
-          {side === "a" ? remove : null}
-          <span className="move-line-main">
-            <span className="move-name">{name}</span>
-            {count}
-          </span>
-          {side === "b" ? remove : null}
-        </span>
-      )}
+        {side === "a" ? shield : null}
+        {side === "b" ? remove : null}
+      </span>
       {short ? (
         <span className="timeline-energy-mark" aria-label="ゲージが足りません">
           !
