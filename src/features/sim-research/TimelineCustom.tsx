@@ -1,17 +1,16 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { PvpMove } from "../../lib/pogo/combat";
 import {
+  alignPlans,
   deleteStep,
-  expandPlan,
-  insertStep,
+  insertAtTurn,
   moveStep,
-  planTurns,
   type TimelineSpan,
   type TimelineStep,
 } from "../../lib/pogo/timelinePlan";
 
-const HOLD_MS = 300;
+const HOLD_MS = 50;
 const TAP_MS = 450;
 const SLOP_PX = 8;
 const SCROLL_ZONE = 76;
@@ -59,10 +58,6 @@ function watchTap(event: ReactPointerEvent, onTap: () => void) {
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", end);
   window.addEventListener("pointercancel", end);
-}
-
-function spansOf(plan: TimelineStep[], fastTurns: number) {
-  return expandPlan(plan, fastTurns);
 }
 
 function spanAt(spans: TimelineSpan[], turn: number) {
@@ -121,13 +116,16 @@ export function TimelineCustom({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<Session | null>(null);
+  const hasShortRef = useRef(false);
   const [insertTurn, setInsertTurn] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [closeWarned, setCloseWarned] = useState(false);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (insertTurn != null) setInsertTurn(null);
+      else if (hasShortRef.current) setCloseWarned(true);
       else onClose();
     };
     window.addEventListener("keydown", onKey);
@@ -296,14 +294,33 @@ export function TimelineCustom({
 
   const fastTurnsA = Math.max(1, sideA.fast.turns);
   const fastTurnsB = Math.max(1, sideB.fast.turns);
-  const spansA = spansOf(sideA.plan, fastTurnsA);
-  const spansB = spansOf(sideB.plan, fastTurnsB);
-  const total = Math.max(planTurns(sideA.plan, fastTurnsA), planTurns(sideB.plan, fastTurnsB), 1);
-  const rows = Array.from({ length: total }, (_, index) => index + 1);
+  const aligned = useMemo(
+    () =>
+      alignPlans(sideA.plan, fastTurnsA, sideB.plan, fastTurnsB, {
+        gainA: sideA.fast.energyGain,
+        gainB: sideB.fast.energyGain,
+        costA: (moveId) => sideA.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY,
+        costB: (moveId) => sideB.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY,
+      }),
+    [fastTurnsA, fastTurnsB, sideA, sideB],
+  );
+  const hasShort = aligned.a.short.length > 0 || aligned.b.short.length > 0;
+  hasShortRef.current = hasShort;
+  useEffect(() => {
+    if (!hasShort) setCloseWarned(false);
+  }, [hasShort]);
+  const tryClose = () => {
+    if (hasShort) {
+      setCloseWarned(true);
+      return;
+    }
+    onClose();
+  };
+  const rows = Array.from({ length: aligned.turns }, (_, index) => index + 1);
 
   return createPortal(
     <div className="search-overlay is-centered timeline-custom-overlay" role="dialog" aria-modal="true" aria-label="タイムラインカスタム">
-      <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
+      <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={tryClose} />
       <div className="search-overlay-panel sim-plan-panel timeline-custom-panel">
         <h2 className="shield-panel-title">タイムラインカスタム</h2>
         <p className="timeline-custom-hint">
@@ -313,14 +330,16 @@ export function TimelineCustom({
           <table className="battle-sheet timeline-custom-sheet" aria-label="タイムラインの編集">
             <tbody>
               {rows.map((turn) => {
-                const cellA = spanAt(spansA, turn);
-                const cellB = spanAt(spansB, turn);
+                const cellA = spanAt(aligned.a.spans, turn);
+                const cellB = spanAt(aligned.b.spans, turn);
                 return (
-                  <tr key={turn}>
+                  <tr key={turn} className={aligned.chargeTurns.includes(turn) ? "has-charge" : undefined}>
                     <SideCells
                       side="a"
                       turn={turn}
                       span={cellA}
+                      fastCount={fastCountAt(sideA.plan, cellA?.stepIndex ?? -1)}
+                      short={cellA ? aligned.a.short.includes(cellA.stepIndex) : false}
                       fast={sideA.fast}
                       charged={sideA.charged}
                       moveWash={moveWash}
@@ -345,6 +364,8 @@ export function TimelineCustom({
                       side="b"
                       turn={turn}
                       span={cellB}
+                      fastCount={fastCountAt(sideB.plan, cellB?.stepIndex ?? -1)}
+                      short={cellB ? aligned.b.short.includes(cellB.stepIndex) : false}
                       fast={sideB.fast}
                       charged={sideB.charged}
                       moveWash={moveWash}
@@ -357,8 +378,9 @@ export function TimelineCustom({
             </tbody>
           </table>
         </div>
-        <div className="sim-iv-actions">
-          <button type="button" className="btn btn-primary" onClick={onClose}>
+        <div className="sim-iv-actions timeline-custom-actions">
+          {closeWarned && hasShort ? <p className="timeline-close-warn">ゲージの足りないスペシャルアタックがあります</p> : null}
+          <button type="button" className="btn btn-primary" onClick={tryClose}>
             閉じる
           </button>
         </div>
@@ -370,9 +392,9 @@ export function TimelineCustom({
           sideB={sideB}
           chargeFill={chargeFill}
           onPick={(side, step) => {
-            const edit = side === "a" ? sideA : sideB;
-            const turns = Math.max(1, edit.fast.turns);
-            change(side, insertStep(edit.plan, turns, insertTurn, step));
+            const placed = insertAtTurn(sideA.plan, fastTurnsA, sideB.plan, fastTurnsB, side, insertTurn, step);
+            change("a", placed.stepsA);
+            change("b", placed.stepsB);
             setInsertTurn(null);
           }}
           onClose={() => setInsertTurn(null)}
@@ -383,10 +405,23 @@ export function TimelineCustom({
   );
 }
 
+function fastCountAt(steps: TimelineStep[], index: number) {
+  if (steps[index]?.kind !== "fast") return null;
+  let count = 0;
+  for (let cursor = index; cursor >= 0; cursor -= 1) {
+    const step = steps[cursor];
+    if (!step || step.kind === "charged") break;
+    if (step.kind === "fast") count += 1;
+  }
+  return count;
+}
+
 function SideCells({
   side,
   turn,
   span,
+  fastCount,
+  short,
   fast,
   charged,
   moveWash,
@@ -396,6 +431,8 @@ function SideCells({
   side: "a" | "b";
   turn: number;
   span: TimelineSpan | null;
+  fastCount: number | null;
+  short: boolean;
   fast: PvpMove;
   charged: PvpMove[];
   moveWash: (type: string) => string;
@@ -406,7 +443,6 @@ function SideCells({
   if (!span) {
     return side === "a" ? (
       <>
-        <td className="tl-x" />
         <td className="tl-grip" />
         <td className="move is-empty" />
       </>
@@ -414,14 +450,14 @@ function SideCells({
       <>
         <td className="move is-empty" />
         <td className="tl-grip" />
-        <td className="tl-x" />
       </>
     );
   }
   const step = span.step;
   const move = step.kind === "charged" ? charged.find((item) => item.id === step.moveId) : step.kind === "fast" ? fast : null;
   const name = step.kind === "wait" ? "待機" : (move?.name ?? "技");
-  const wash = move ? moveWash(move.type) : undefined;
+  const wash = short || !move ? undefined : moveWash(move.type);
+  const roomy = span.turns >= 2;
   const grip = (
     <td className="tl-grip" rowSpan={span.turns} data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="grip">
       <button
@@ -437,37 +473,58 @@ function SideCells({
     </td>
   );
   const remove = (
-    <td className="tl-x" rowSpan={span.turns} data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="x">
-      <button
-        type="button"
-        className="timeline-x"
-        aria-label={`${name}を消す`}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          event.stopPropagation();
-          watchTap(event, () => onDelete(span.stepIndex));
-        }}
-        onClick={(event) => event.preventDefault()}
-      >
-        ×
-      </button>
-    </td>
+    <button
+      type="button"
+      className="timeline-x"
+      aria-label={`${name}を消す`}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+        watchTap(event, () => onDelete(span.stepIndex));
+      }}
+      onClick={(event) => event.preventDefault()}
+    >
+      ×
+    </button>
   );
+  const count = fastCount != null ? <span className="num move-dmg">{fastCount}</span> : null;
   const moveCell = (
     <td
-      className={`move${span.step.kind === "wait" ? " is-wait" : ""}`}
+      className={`move${step.kind === "wait" ? " is-wait" : ""}${short ? " is-short" : ""}`}
       rowSpan={span.turns}
       data-tl-side={side}
       data-tl-step={span.stepIndex}
       data-tl-part="move"
       style={wash ? { background: wash } : undefined}
     >
-      <span className="move-name">{name}</span>
+      {roomy ? (
+        <span className="move-label is-roomy">
+          <span className="move-name">{name}</span>
+          <span className="move-line-sub">
+            {side === "a" ? remove : null}
+            {count}
+            {side === "b" ? remove : null}
+          </span>
+        </span>
+      ) : (
+        <span className={`move-label${side === "b" ? " is-foe" : ""}`}>
+          {side === "a" ? remove : null}
+          <span className="move-line-main">
+            <span className="move-name">{name}</span>
+            {count}
+          </span>
+          {side === "b" ? remove : null}
+        </span>
+      )}
+      {short ? (
+        <span className="timeline-energy-mark" aria-label="ゲージが足りません">
+          !
+        </span>
+      ) : null}
     </td>
   );
   return side === "a" ? (
     <>
-      {remove}
       {grip}
       {moveCell}
     </>
@@ -475,7 +532,6 @@ function SideCells({
     <>
       {moveCell}
       {grip}
-      {remove}
     </>
   );
 }
