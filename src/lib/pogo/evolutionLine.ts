@@ -187,6 +187,17 @@ function megaLabel(mega: string) {
   return mega;
 }
 
+/** 「メガカラマネロ」でも「カラマネロ(メガ)」に届くようにする。種族名そのもの（メガニウム等）には付けない。 */
+function megaSearchAliases(name: string, mega: string) {
+  const mark = megaLabel(mega);
+  const aliases = [`メガ${name}`, `${name}${mark}`, `${name}(${mark})`];
+  if (mega === "MEGA_X" || mega === "MEGA_Y") {
+    const letter = mega === "MEGA_X" ? "X" : "Y";
+    aliases.push(`メガ${letter}${name}`, `メガ${name}${letter}`, `${name}メガ${letter}`);
+  }
+  return [...new Set(aliases)];
+}
+
 /**
  * 検索用。タイプ・わざ・攻撃・防御・HPが全部同じフォルムは代表1体。
  * どれか一つでも違うフォルムと、中身の違うメガシンカは別の結果にする。
@@ -235,6 +246,7 @@ export function buildSearchGroups(stats: PogoStatRecord[], data: EvolutionData):
       pokemonId: mega.pokemonId,
       entries: [record],
       label: memberLabel(base, mega.mega),
+      aliases: megaSearchAliases(getPokemonDisplayName(base.pokemon_id, base.pokemon_name), mega.mega),
       exactSprite: true,
       spriteSuffix: mega.spriteSuffix,
     });
@@ -264,7 +276,7 @@ function findMegaSelection(selected: PogoStatRecord, data: EvolutionData) {
 
 function memberLabel(record: PogoStatRecord, mega: string | null) {
   const name = getPokemonDisplayName(record.pokemon_id, record.pokemon_name);
-  if (mega) return `${name} ${megaLabel(mega)}`;
+  if (mega) return `${name}(${megaLabel(mega)})`;
   if (record.form !== "Normal") return `${name} ${formatFormLabel(record.form)}`;
   return name;
 }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
+import { PokemonLabelFit } from "../../components/PokemonLabelFit";
 import { matchesNameExactly, matchesNameQuery } from "../../lib/pogo/kanaSearch";
-import { speciesDisplayName, type SpeciesGroup } from "../../lib/pogo/research";
+import { speciesDisplayName, speciesLabelParts, type SpeciesGroup } from "../../lib/pogo/research";
 
 export function PokemonSearchDialog({
   open,
@@ -37,8 +38,8 @@ export function PokemonSearchDialog({
     return groups
       .filter((group) => {
         const entry = group.entries[0];
-        const english = `${entry?.pokemon_name ?? ""} ${entry?.form ?? ""}`.trim();
-        return matchesNameQuery(normalized, speciesDisplayName(group), english, group.pokemonId);
+        const english = searchEnglish(entry?.pokemon_name ?? "", entry?.form ?? "");
+        return matchesNameQuery(normalized, speciesDisplayName(group), english, group.pokemonId, group.aliases ?? []);
       })
       .slice(0, 100);
   }, [counts, groups, query]);
@@ -47,7 +48,7 @@ export function PokemonSearchDialog({
     const trimmed = query.trim();
     if (!open || composing || !trimmed || results.length !== 1) return null;
     const group = results[0];
-    if (!matchesNameExactly(trimmed, speciesDisplayName(group))) return null;
+    if (!matchesNameExactly(trimmed, speciesDisplayName(group), group.aliases ?? [])) return null;
     return group;
   }, [composing, open, query, results]);
 
@@ -126,7 +127,10 @@ export function PokemonSearchDialog({
                     size={40}
                   />
                 </span>
-                <span className="search-result-name">{speciesDisplayName(group)}</span>
+                <PokemonLabelFit
+                  className="search-result-name"
+                  {...speciesLabelParts(group)}
+                />
                 <span className="search-result-no num">No.{String(group.pokemonId).padStart(4, "0")}</span>
               </button>
             ))
@@ -135,6 +139,14 @@ export function PokemonSearchDialog({
       </div>
     </div>
   );
+}
+
+function searchEnglish(name: string, form: string) {
+  const parts = [name, form];
+  if (form === "MEGA") parts.push(`mega ${name}`);
+  if (form === "MEGA_X") parts.push(`mega ${name}`, `mega x ${name}`, `mega ${name} x`);
+  if (form === "MEGA_Y") parts.push(`mega ${name}`, `mega y ${name}`, `mega ${name} y`);
+  return parts.join(" ").trim();
 }
 
 function searchCount(group: SpeciesGroup, counts: Record<string, number>) {

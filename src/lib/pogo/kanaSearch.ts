@@ -158,18 +158,29 @@ function queryHiraganaVariants(query: string) {
   return [...variants].filter((variant) => variant.length > 0);
 }
 
-/** 図鑑名と、ひらがな・カタカナ・ローマ字の入力が、長音のゆれを除いて同じ文字列か。部分一致は含めない。 */
-export function matchesNameExactly(query: string, japanese: string) {
-  const raw = query.normalize("NFKC").trim().toLowerCase();
-  if (!raw) return false;
-  const nameHira = expandLongVowel(
-    toHiragana(japanese.normalize("NFKC").toLowerCase().replace(/[♀♂\s・･._\-ｰ'"’]/g, "")),
-  );
-  const names = new Set(nameHira);
-  return queryHiraganaVariants(raw).some((variant) => names.has(variant));
+function nameHiragana(name: string, stripPunctuation: boolean) {
+  const pattern = stripPunctuation ? /[♀♂\s・･._\-ｰ'"’]/g : /[♀♂\s・･]/g;
+  return expandLongVowel(toHiragana(name.normalize("NFKC").toLowerCase().replace(pattern, "")));
 }
 
-export function matchesNameQuery(query: string, japanese: string, english: string, dex: number) {
+/** 図鑑名と、ひらがな・カタカナ・ローマ字の入力が、長音のゆれを除いて同じ文字列か。部分一致は含めない。 */
+export function matchesNameExactly(query: string, japanese: string, aliases: readonly string[] = []) {
+  const raw = query.normalize("NFKC").trim().toLowerCase();
+  if (!raw) return false;
+  const variants = queryHiraganaVariants(raw);
+  return [japanese, ...aliases].some((name) => {
+    const names = new Set(nameHiragana(name, true));
+    return variants.some((variant) => names.has(variant));
+  });
+}
+
+export function matchesNameQuery(
+  query: string,
+  japanese: string,
+  english: string,
+  dex: number,
+  aliases: readonly string[] = [],
+) {
   const raw = query.normalize("NFKC").trim().toLowerCase();
   if (!raw) return true;
   const dexText = String(dex);
@@ -179,6 +190,9 @@ export function matchesNameQuery(query: string, japanese: string, english: strin
   const queryKey = raw.replace(/[\s・･._\-ｰ'"’]/g, "");
   if (englishKey.includes(queryKey)) return true;
 
-  const nameHira = expandLongVowel(toHiragana(japanese.normalize("NFKC").replace(/[♀♂\s・･]/g, "")));
-  return queryHiraganaVariants(raw).some((variant) => nameHira.some((name) => name.includes(variant)));
+  const variants = queryHiraganaVariants(raw);
+  return [japanese, ...aliases].some((name) => {
+    const nameHira = nameHiragana(name, false);
+    return variants.some((variant) => nameHira.some((item) => item.includes(variant)));
+  });
 }

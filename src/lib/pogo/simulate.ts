@@ -3,9 +3,18 @@
  * このファイルを直す前に、その文書を読む。連戦モードでも同じ順で処理する。
  */
 import { damageForMove, type PvpMove } from "./combat";
+import { resolveThrowTweak } from "./moveBonusEffect";
+import { stepDuration, type TimelineStep } from "./timelinePlan";
 
 export type ChargeTiming = "asap" | "cct";
 export type FighterId = "a" | "b";
+
+export type ThrowTweak = {
+  /** この1発だけ追加効果を入れる。 */
+  buff: boolean;
+  /** 25～100。シールドで防いだ技には掛けない。 */
+  damagePercent: number;
+};
 
 export type FighterInput = {
   label: string;
@@ -19,8 +28,16 @@ export type FighterInput = {
   shields: number;
   timing: ChargeTiming;
   applyChanceBuffs: boolean;
+  /** カスタムのゲージ技順。null はその回を打たない。未指定なら最適。 */
+  chargedQueue?: (string | null)[] | null;
+  /** 受けるスペシャルの何発目（0始まり）を防ぐか。未指定なら枚数ぶん先に来た技から防ぐ。 */
+  shieldThrows?: number[] | null;
+  /** 自分が撃ったスペシャルの何発目か。 */
+  throwTweaks?: (ThrowTweak | null)[] | null;
   /** 指定ターンに交代する。出てきたポケモンはそのターン技を出さない。シールドは引き継ぐ。 */
   switchPlan?: SwitchPlan | null;
+  /** タイムラインカスタム。ある側は、この順で技か待機を行う。尽きたあとは最適で続ける。 */
+  timelinePlan?: TimelineStep[] | null;
 };
 
 export type SwitchPlan = {
@@ -48,10 +65,15 @@ export type TimelineEvent = {
   actionId: number;
   /** スペシャルが打てるのに、最適タイミングまでノーマルアタックを足した。 */
   cct: boolean;
+  /** その側が撃ったスペシャルの何発目か。0始まり。 */
+  throwIndex: number | null;
+  moveId: string;
   hpA: number;
   hpB: number;
   energyA: number;
   energyB: number;
+  /** タイムラインカスタムの手順から出た技。手順のあとの最適は false。 */
+  scripted: boolean;
 };
 
 export type SimResult = {
@@ -61,6 +83,8 @@ export type SimResult = {
   hpB: number;
   maxHpA: number;
   maxHpB: number;
+  energyA: number;
+  energyB: number;
   rating: number;
   timeline: TimelineEvent[];
 };
@@ -73,6 +97,7 @@ type Action = {
   id: number;
   startTurn: number;
   cct: boolean;
+  scripted: boolean;
 };
 
 type FighterState = FighterInput & {
@@ -82,6 +107,12 @@ type FighterState = FighterInput & {
   attackStage: number;
   defenseStage: number;
   action: Action | null;
+  /** タイムラインカスタムの次の手順。 */
+  planIndex: number;
+  /** ゲージが足りてから、まだ撃たずに通したノーマルアタックの数。 */
+  farmed: number;
+  thrown: number;
+  received: number;
 };
 
 function clampStage(value: number) {
@@ -132,6 +163,22 @@ function damageOf(self: FighterState, other: FighterState, move: PvpMove) {
 }
 
 function pickCharged(self: FighterState, other: FighterState) {
+  if (self.chargedQueue) {
+    const queue = self.chargedQueue;
+    while (self.thrown < queue.length && queue[self.thrown] == null) {
+      const rest = queue.slice(self.thrown);
+      if (rest.every((slot) => slot == null)) return null;
+      self.thrown += 1;
+    }
+    if (self.thrown >= queue.length) return null;
+    const chosen = self.charged.find((move) => move.id === queue[self.thrown]) ?? null;
+    if (!chosen || self.energy < chosen.energy) return null;
+    return chosen;
+  }
+  return greedyCharged(self, other);
+}
+
+function greedyCharged(self: FighterState, other: FighterState) {
   const ready = self.charged.filter((move) => self.energy >= move.energy);
   if (!ready.length) return null;
 
@@ -143,14 +190,49 @@ function pickCharged(self: FighterState, other: FighterState) {
   return ready[0];
 }
 
+function turnsLeftAfterFarms(currentLeft: number, oppTurns: number, myTurns: number, farms: number) {
+  let left = Math.max(1, currentLeft);
+  let time = farms * myTurns;
+  while (time > 0) {
+    const step = Math.min(left, time);
+    time -= step;
+    left -= step;
+    if (left <= 0) left = Math.max(1, oppTurns);
+  }
+  return left;
+}
+
+/** 3ターン以上のノーマルアタックは、追加で通す回数を0～2に限り、理想のタイミングに一番近い回数を選ぶ。 */
+function farmTarget(self: FighterState, other: FighterState) {
+  const ideal = cctTurnsLeft(self.fast.turns, other.fast.turns);
+  const currentLeft = other.action?.kind === "fast" ? other.action.turnsLeft : other.fast.turns;
+  let bestK = 0;
+  let bestLoss = Number.POSITIVE_INFINITY;
+  for (let farms = 0; farms <= 2; farms += 1) {
+    const left = turnsLeftAfterFarms(currentLeft, other.fast.turns, self.fast.turns, farms);
+    const loss = ideal == null ? farms : Math.abs(left - ideal);
+    if (loss < bestLoss || (loss === bestLoss && farms < bestK)) {
+      bestLoss = loss;
+      bestK = farms;
+    }
+  }
+  return bestK;
+}
+
 function shouldThrow(self: FighterState, other: FighterState, move: PvpMove) {
   if (other.shieldsLeft === 0 && damageOf(self, other, move) >= other.hp) return true;
   if (self.timing === "asap") return true;
+  if (self.fast.turns >= 3) return self.farmed >= farmTarget(self, other);
 
   const needed = cctTurnsLeft(self.fast.turns, other.fast.turns);
   if (needed == null) return true;
   if (other.action?.kind === "fast" && other.action.turnsLeft === needed) return true;
   return false;
+}
+
+function wantsShield(defender: FighterState) {
+  if (!defender.shieldThrows) return defender.shieldsLeft > 0;
+  return defender.shieldsLeft > 0 && defender.shieldThrows.includes(defender.received);
 }
 
 function applyBuffs(self: FighterState, other: FighterState, move: PvpMove, forceChance: boolean) {
@@ -201,6 +283,9 @@ function applySwitch(fighter: FighterState, next: SwitchPlan["next"]) {
     defenseStage: 0,
     action: null,
     hp: next.hp,
+    farmed: 0,
+    thrown: 0,
+    received: 0,
   });
 }
 
@@ -214,89 +299,95 @@ function createFighter(id: FighterId, input: FighterInput): FighterState {
     attackStage: 0,
     defenseStage: 0,
     action: null,
+    planIndex: 0,
+    farmed: 0,
+    thrown: 0,
+    received: 0,
   };
 }
 
-type MoveCell = {
-  moveA: PvpMove | null;
-  moveB: PvpMove | null;
-  result: SimResult;
-};
+export function simulateBattle(inputA: FighterInput, inputB: FighterInput): SimResult {
+  const plansA = inputA.shieldThrows ? null : shieldPlanOptions(inputA.shields);
+  const plansB = inputB.shieldThrows ? null : shieldPlanOptions(inputB.shields);
+  if (plansA || plansB) {
+    const listA = plansA ?? [inputA.shieldThrows ?? []];
+    const listB = plansB ?? [inputB.shieldThrows ?? []];
+    let bestForA: SimResult | null = null;
+    for (const planA of listA) {
+      let bestForB: SimResult | null = null;
+      for (const planB of listB) {
+        const result = simulateMoves(
+          { ...inputA, shieldThrows: planA },
+          { ...inputB, shieldThrows: planB },
+        );
+        if (!bestForB || preferDefender(result, bestForB)) bestForB = result;
+      }
+      if (bestForB && (!bestForA || preferAttacker(bestForB, bestForA))) bestForA = bestForB;
+    }
+    return bestForA ?? simulateMoves(inputA, inputB);
+  }
+  return simulateMoves(inputA, inputB);
+}
+
+function shieldPlanOptions(count: number) {
+  const use = Math.max(0, Math.min(2, Math.floor(count)));
+  if (use === 0) return null;
+  const horizon = 4;
+  const plans: number[][] = [];
+  const walk = (start: number, left: number, acc: number[]) => {
+    if (left === 0) {
+      plans.push([...acc]);
+      return;
+    }
+    for (let index = start; index < horizon; index += 1) {
+      acc.push(index);
+      walk(index + 1, left - 1, acc);
+      acc.pop();
+    }
+  };
+  walk(0, use, []);
+  return plans;
+}
+
+/** 評価が高い方を優先し、同じなら自分の残りゲージが多い方。 */
+function preferAttacker(next: SimResult, current: SimResult) {
+  if (next.rating !== current.rating) return next.rating > current.rating;
+  if (next.energyA !== current.energyA) return next.energyA > current.energyA;
+  return next.energyB > current.energyB;
+}
+
+/** 評価が低い方を優先し、同じなら相手の残りゲージが多い方。 */
+function preferDefender(next: SimResult, current: SimResult) {
+  if (next.rating !== current.rating) return next.rating < current.rating;
+  if (next.energyB !== current.energyB) return next.energyB > current.energyB;
+  return next.energyA > current.energyA;
+}
 
 /**
- * 両方にスペシャルアタックが2つあるときは、勝つ側は倒すのが一番早い技、
- * 負ける側は負けるまでに相手のHPを一番削る技を、組み合わせの中から一度だけ選ぶ。
- * 選び直して勝敗が入れ替わるループには入らない。選んだ結果が引き分けなら引き分けのまま返す。
+ * 最適側だけ、今の相手条件で技を1種類に決める。
+ * タイムライン手順、技選択のカスタム順、候補が1つ以下の側は入力のまま固定する。
+ * 片方のカスタムは、もう片方の最適探索を止めない。
  */
-export function simulateBattle(inputA: FighterInput, inputB: FighterInput): SimResult {
-  if (inputA.charged.length <= 1 && inputB.charged.length <= 1) {
-    return simulateLocked(inputA, inputB);
-  }
+function moveChoices(input: FighterInput): FighterInput[] {
+  if (input.timelinePlan || input.chargedQueue || input.charged.length <= 1) return [input];
+  return input.charged.map((move) => ({ ...input, charged: [move], chargedQueue: null }));
+}
 
-  const optionsA = inputA.charged.length ? inputA.charged : [null];
-  const optionsB = inputB.charged.length ? inputB.charged : [null];
-  const cells: MoveCell[] = [];
-  for (const moveA of optionsA) {
-    for (const moveB of optionsB) {
-      cells.push({
-        moveA,
-        moveB,
-        result: simulateLocked(
-          { ...inputA, charged: moveA ? [moveA] : [] },
-          { ...inputB, charged: moveB ? [moveB] : [] },
-        ),
-      });
+function simulateMoves(inputA: FighterInput, inputB: FighterInput): SimResult {
+  const optionsA = moveChoices(inputA);
+  const optionsB = moveChoices(inputB);
+  if (optionsA.length === 1 && optionsB.length === 1) return simulateLocked(optionsA[0], optionsB[0]);
+
+  let bestForA: SimResult | null = null;
+  for (const nextA of optionsA) {
+    let bestForB: SimResult | null = null;
+    for (const nextB of optionsB) {
+      const result = simulateLocked(nextA, nextB);
+      if (!bestForB || preferDefender(result, bestForB)) bestForB = result;
     }
+    if (bestForB && (!bestForA || preferAttacker(bestForB, bestForA))) bestForA = bestForB;
   }
-  return pickChargedCell(cells).result;
-}
-
-function pickChargedCell(cells: MoveCell[]) {
-  const winsA = cells.filter((cell) => cell.result.winner === "a");
-  const winsB = cells.filter((cell) => cell.result.winner === "b");
-  const draws = cells.filter((cell) => cell.result.winner === "draw");
-  if (!winsA.length && !winsB.length) return draws[0] ?? cells[0];
-
-  let winnerId: FighterId;
-  if (winsA.length && !winsB.length) winnerId = "a";
-  else if (winsB.length && !winsA.length) winnerId = "b";
-  else {
-    const bestA = Math.min(...winsA.map((cell) => cell.result.turns));
-    const bestB = Math.min(...winsB.map((cell) => cell.result.turns));
-    if (bestA === bestB) return closestCell(draws.length ? draws : cells);
-    winnerId = bestA < bestB ? "a" : "b";
-  }
-
-  const winCells = winnerId === "a" ? winsA : winsB;
-  const fastest = Math.min(...winCells.map((cell) => cell.result.turns));
-  const fastestCells = winCells.filter((cell) => cell.result.turns === fastest);
-  const winCell = fastestCells.reduce((best, cell) => (winnerHp(cell, winnerId) > winnerHp(best, winnerId) ? cell : best));
-  const winMove = winnerId === "a" ? winCell.moveA : winCell.moveB;
-  const against = cells.filter((cell) => (winnerId === "a" ? cell.moveA === winMove : cell.moveB === winMove));
-  const losses = against.filter((cell) => cell.result.winner === winnerId);
-  const pool = losses.length ? losses : against;
-  return pool.reduce((best, cell) => {
-    const dealt = damageByLoser(cell, winnerId);
-    const bestDealt = damageByLoser(best, winnerId);
-    if (dealt !== bestDealt) return dealt > bestDealt ? cell : best;
-    return cell.result.turns > best.result.turns ? cell : best;
-  });
-}
-
-function winnerHp(cell: MoveCell, winnerId: FighterId) {
-  return winnerId === "a" ? cell.result.hpA : cell.result.hpB;
-}
-
-function damageByLoser(cell: MoveCell, winnerId: FighterId) {
-  return winnerId === "a" ? cell.result.maxHpA - cell.result.hpA : cell.result.maxHpB - cell.result.hpB;
-}
-
-function closestCell(cells: MoveCell[]) {
-  return cells.reduce((best, cell) => {
-    const gap = Math.abs(cell.result.hpA - cell.result.hpB);
-    const bestGap = Math.abs(best.result.hpA - best.result.hpB);
-    return gap < bestGap ? cell : best;
-  });
+  return bestForA ?? simulateLocked(inputA, inputB);
 }
 
 function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
@@ -318,8 +409,42 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         continue;
       }
       if (self.action) continue;
+      if (self.timelinePlan && self.planIndex < self.timelinePlan.length) {
+        const step = self.timelinePlan[self.planIndex];
+        self.planIndex += 1;
+        if (step?.kind === "charged") {
+          const move = self.charged.find((item) => item.id === step.moveId);
+          if (move && self.energy >= move.energy) {
+            self.farmed = 0;
+            self.action = {
+              kind: "charged",
+              move,
+              turnsLeft: 1,
+              totalTurns: 1,
+              id: nextActionId++,
+              startTurn: turn,
+              cct: false,
+              scripted: true,
+            };
+          }
+        } else if (step?.kind === "fast") {
+          const turns = stepDuration(step, Math.max(1, self.fast.turns));
+          self.action = {
+            kind: "fast",
+            move: self.fast,
+            turnsLeft: turns,
+            totalTurns: turns,
+            id: nextActionId++,
+            startTurn: turn,
+            cct: false,
+            scripted: true,
+          };
+        }
+        continue;
+      }
       const charged = pickCharged(self, other);
       if (charged && shouldThrow(self, other, charged)) {
+        self.farmed = 0;
         self.action = {
           kind: "charged",
           move: charged,
@@ -328,8 +453,11 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
           id: nextActionId++,
           startTurn: turn,
           cct: false,
+          scripted: false,
         };
       } else {
+        if (charged) self.farmed += 1;
+        else self.farmed = 0;
         const turns = Math.max(1, self.fast.turns);
         self.action = {
           kind: "fast",
@@ -339,14 +467,15 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
           id: nextActionId++,
           startTurn: turn,
           cct: Boolean(charged),
+          scripted: false,
         };
       }
     }
 
     const occupied = [a, b].map((fighter) => ({ fighter, action: fighter.action }));
-    const dealt: Record<FighterId, { damage: number; shielded: boolean }> = {
-      a: { damage: 0, shielded: false },
-      b: { damage: 0, shielded: false },
+    const dealt: Record<FighterId, { damage: number; shielded: boolean; throwIndex: number | null }> = {
+      a: { damage: 0, shielded: false, throwIndex: null },
+      b: { damage: 0, shielded: false, throwIndex: null },
     };
 
     // 1. 交代。1ターンを使い、出てきたポケモンはこのターン技を出さない。
@@ -368,18 +497,30 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         continue;
       }
       self.energy = Math.max(0, self.energy - action.move.energy);
+      const throwIndex = self.thrown;
+      const tweak = resolveThrowTweak(self.throwTweaks?.[throwIndex] ?? null, action.move);
+      self.thrown += 1;
       let damage = 0;
       let shielded = false;
-      if (other.shieldsLeft > 0) {
+      if (wantsShield(other)) {
         other.shieldsLeft -= 1;
         damage = 1;
         shielded = true;
       } else {
         damage = damageOf(self, other, action.move);
+        if (tweak) {
+          const percent = Math.max(25, Math.min(100, Math.round(tweak.damagePercent)));
+          damage = Math.max(1, Math.round((damage * percent) / 100));
+        }
       }
+      other.received += 1;
       other.hp -= damage;
-      applyBuffs(self, other, action.move, self.applyChanceBuffs);
-      dealt[self.id] = { damage, shielded };
+      if (tweak) {
+        if (tweak.buff) applyBuffs(self, other, action.move, true);
+      } else {
+        applyBuffs(self, other, action.move, self.applyChanceBuffs);
+      }
+      dealt[self.id] = { damage, shielded, throwIndex };
       resolved.add(action.id);
       self.action = null;
       specialLanded = true;
@@ -411,7 +552,7 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         self.energy = Math.min(100, self.energy + action.move.energyGain);
         const damage = damageOf(self, other, action.move);
         other.hp -= damage;
-        dealt[self.id] = { damage, shielded: false };
+        dealt[self.id] = { damage, shielded: false, throwIndex: null };
         self.action = null;
       }
     }
@@ -430,6 +571,9 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         shielded: dealt[fighter.id].shielded,
         actionId: action.id,
         cct: action.cct,
+        throwIndex: action.kind === "charged" ? dealt[fighter.id].throwIndex : null,
+        moveId: action.move.id,
+        scripted: action.scripted,
         ...snap,
       });
     }
@@ -449,6 +593,8 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
         hpB: Math.max(0, b.hp),
         maxHpA,
         maxHpB,
+        energyA: a.energy,
+        energyB: b.energy,
         rating,
         timeline,
       };
@@ -462,6 +608,8 @@ function simulateLocked(inputA: FighterInput, inputB: FighterInput): SimResult {
     hpB: Math.max(0, b.hp),
     maxHpA,
     maxHpB,
+    energyA: a.energy,
+    energyB: b.energy,
     rating: 100,
     timeline,
   };
@@ -472,7 +620,7 @@ export function simulateShieldGrid(inputA: FighterInput, inputB: FighterInput) {
   for (let shieldsA = 0; shieldsA <= 2; shieldsA += 1) {
     const row: SimResult[] = [];
     for (let shieldsB = 0; shieldsB <= 2; shieldsB += 1) {
-      row.push(simulateBattle({ ...inputA, shields: shieldsA }, { ...inputB, shields: shieldsB }));
+      row.push(simulateBattle({ ...inputA, shields: shieldsA, shieldThrows: null }, { ...inputB, shields: shieldsB, shieldThrows: null }));
     }
     grid.push(row);
   }

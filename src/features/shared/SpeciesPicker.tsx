@@ -21,7 +21,9 @@ export function SpeciesPicker({
     const normalized = query.trim().toLowerCase();
     if (!normalized) return groups.slice(0, compact ? 24 : 40);
     return groups
-      .filter((group) => matchesNameQuery(normalized, speciesDisplayName(group), group.name, group.pokemonId))
+      .filter((group) =>
+        matchesNameQuery(normalized, speciesDisplayName(group), group.name, group.pokemonId, group.aliases ?? []),
+      )
       .slice(0, compact ? 24 : 40);
   }, [compact, groups, query]);
 
