@@ -95,10 +95,7 @@ export function TimelineOps({
             ["cct", "最適"],
             ["asap", "最短"],
           ]}
-          onChange={(timing) => {
-            onChangeA({ ...sideA, timing: timing as ChargeTiming, timelineMode: "optimal" });
-            onChangeB({ ...sideB, timelineMode: "optimal" });
-          }}
+          onChange={(timing) => onChangeA({ ...sideA, timing: timing as ChargeTiming })}
         />
         <ChoiceButtons
           align="end"
@@ -107,10 +104,7 @@ export function TimelineOps({
             ["cct", "最適"],
             ["asap", "最短"],
           ]}
-          onChange={(timing) => {
-            onChangeB({ ...sideB, timing: timing as ChargeTiming, timelineMode: "optimal" });
-            onChangeA({ ...sideA, timelineMode: "optimal" });
-          }}
+          onChange={(timing) => onChangeB({ ...sideB, timing: timing as ChargeTiming })}
         />
       </OpsRow>
       <OpsRow label="技選択">

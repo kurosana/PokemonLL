@@ -1,20 +1,17 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { PvpMove } from "../../lib/pogo/combat";
 import {
-  correctTimeline,
-  displayRows,
+  deleteStep,
   expandPlan,
-  holdAsBlank,
-  inspectTimeline,
+  insertStep,
   moveStep,
-  placeStep,
-  type TimelineFix,
+  planTurns,
   type TimelineSpan,
   type TimelineStep,
 } from "../../lib/pogo/timelinePlan";
 
-const HOLD_MS = 100;
+const HOLD_MS = 300;
 const TAP_MS = 450;
 const SLOP_PX = 8;
 const SCROLL_ZONE = 76;
@@ -110,9 +107,6 @@ export function TimelineCustom({
   sideB,
   chargeFill,
   moveWash,
-  shieldsA,
-  shieldsB,
-  onToggleShield,
   onChangeA,
   onChangeB,
   onClose,
@@ -121,54 +115,28 @@ export function TimelineCustom({
   sideB: SideEdit;
   chargeFill: (type: string) => string;
   moveWash: (type: string) => string;
-  shieldsA: number[];
-  shieldsB: number[];
-  onToggleShield: (side: "a" | "b", throwIndex: number) => void;
-  onChangeA: (plan: TimelineStep[], chargedMap?: number[]) => void;
-  onChangeB: (plan: TimelineStep[], chargedMap?: number[]) => void;
-  onClose: (fix: TimelineFix) => void;
+  onChangeA: (plan: TimelineStep[]) => void;
+  onChangeB: (plan: TimelineStep[]) => void;
+  onClose: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<Session | null>(null);
-  const [insertAt, setInsertAt] = useState<{ turn: number; span: number } | null>(null);
+  const [insertTurn, setInsertTurn] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [closeWarned, setCloseWarned] = useState(false);
-  const fastTurnsA = Math.max(1, sideA.fast.turns);
-  const fastTurnsB = Math.max(1, sideB.fast.turns);
-  const view = useMemo(() => {
-    const costA = (moveId: string) => sideA.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
-    const costB = (moveId: string) => sideB.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
-    return inspectTimeline(sideA.plan, fastTurnsA, sideA.fast.energyGain, costA, sideB.plan, fastTurnsB, sideB.fast.energyGain, costB);
-  }, [fastTurnsA, fastTurnsB, sideA, sideB]);
-  const hasShort = view.a.marks.includes("short") || view.b.marks.includes("short");
-
-  const tryClose = () => {
-    if (hasShort) {
-      setCloseWarned(true);
-      return;
-    }
-    const costA = (moveId: string) => sideA.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
-    const costB = (moveId: string) => sideB.charged.find((move) => move.id === moveId)?.energy ?? Number.POSITIVE_INFINITY;
-    onClose(correctTimeline(sideA.plan, fastTurnsA, sideA.fast.energyGain, costA, sideB.plan, fastTurnsB, sideB.fast.energyGain, costB));
-  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (insertAt != null) setInsertAt(null);
-      else tryClose();
+      if (insertTurn != null) setInsertTurn(null);
+      else onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hasShort, insertAt, onClose]);
+  }, [insertTurn, onClose]);
 
-  useEffect(() => {
-    if (!hasShort) setCloseWarned(false);
-  }, [hasShort]);
-
-  const change = (side: "a" | "b", plan: TimelineStep[], chargedMap?: number[]) => {
-    if (side === "a") onChangeA(plan, chargedMap);
-    else onChangeB(plan, chargedMap);
+  const change = (side: "a" | "b", plan: TimelineStep[]) => {
+    if (side === "a") onChangeA(plan);
+    else onChangeB(plan);
   };
 
   const applySession = (session: Session, followFinger: boolean) => {
@@ -183,8 +151,7 @@ export function TimelineCustom({
       if (index === session.from && followFinger) {
         el.style.transition = "none";
         el.style.zIndex = "5";
-        el.style.transform =
-          el.dataset.tlPart === "tail" ? `translateY(${fingerShift}px)` : `translateY(${fingerShift}px) scale(1.03)`;
+        el.style.transform = `translateY(${fingerShift}px) scale(1.03)`;
         el.classList.add("is-lifted");
         return;
       }
@@ -218,20 +185,10 @@ export function TimelineCustom({
     const scroller = scrollRef.current;
     if (!scroller) return;
     const base = scroller.getBoundingClientRect().top;
-    const rowBox = new Map<number, DOMRect>();
-    scroller.querySelectorAll<HTMLElement>("tr[data-tl-turn]").forEach((row) => {
-      rowBox.set(Number(row.dataset.tlTurn), row.getBoundingClientRect());
-    });
     const blocks: Block[] = [...scroller.querySelectorAll<HTMLElement>(`[data-tl-side="${side}"][data-tl-part="move"]`)]
       .map((el) => {
         const rect = el.getBoundingClientRect();
-        const start = Number(el.dataset.tlStart);
-        const turns = Number(el.dataset.tlRows);
-        const first = rowBox.get(start);
-        const last = rowBox.get(start + Math.max(1, turns) - 1);
-        const top = (first ?? rect).top;
-        const bottom = (last ?? rect).bottom;
-        return { index: Number(el.dataset.tlStep), top: top - base + scroller.scrollTop, height: Math.max(1, bottom - top) };
+        return { index: Number(el.dataset.tlStep), top: rect.top - base + scroller.scrollTop, height: rect.height };
       })
       .sort((left, right) => left.top - right.top);
     if (!blocks.some((block) => block.index === from)) return;
@@ -337,93 +294,61 @@ export function TimelineCustom({
     window.addEventListener("pointercancel", onUp);
   };
 
+  const fastTurnsA = Math.max(1, sideA.fast.turns);
+  const fastTurnsB = Math.max(1, sideB.fast.turns);
   const spansA = spansOf(sideA.plan, fastTurnsA);
   const spansB = spansOf(sideB.plan, fastTurnsB);
-  const shown = displayRows(sideA.plan, fastTurnsA, sideB.plan, fastTurnsB);
+  const total = Math.max(planTurns(sideA.plan, fastTurnsA), planTurns(sideB.plan, fastTurnsB), 1);
+  const rows = Array.from({ length: total }, (_, index) => index + 1);
 
   return createPortal(
     <div className="search-overlay is-centered timeline-custom-overlay" role="dialog" aria-modal="true" aria-label="タイムラインカスタム">
-      <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={tryClose} />
+      <button type="button" className="search-overlay-backdrop" aria-label="閉じる" onClick={onClose} />
       <div className="search-overlay-panel sim-plan-panel timeline-custom-panel">
         <h2 className="shield-panel-title">タイムラインカスタム</h2>
         <p className="timeline-custom-hint">
-          真ん中のターン数をタップすると、その位置の空白に技が入ります。空白が無いときは、そのターンへ割って入ります。×は技を消し、その枠はグレーの空白のまま残します。スペシャルの相手側にある盾をタップすると、その技にシールドを使います。
+          真ん中のターン数をタップすると、その位置に技や待機を追加できます。持ち手を長押しすると、その技を上下に並べ替えられます。
         </p>
         <div ref={scrollRef} className={`timeline-custom-scroll${dragging ? " is-dragging" : ""}`}>
           <table className="battle-sheet timeline-custom-sheet" aria-label="タイムラインの編集">
-            <colgroup>
-              <col className="col-grip" />
-              <col className="col-move" />
-              <col className="col-turn" />
-              <col className="col-move" />
-              <col className="col-grip" />
-            </colgroup>
             <tbody>
-              {shown.map((row) => {
-                const cellA = spanAt(spansA, row.turn);
-                const cellB = spanAt(spansB, row.turn);
+              {rows.map((turn) => {
+                const cellA = spanAt(spansA, turn);
+                const cellB = spanAt(spansB, turn);
                 return (
-                  <tr key={row.turn} data-tl-turn={row.turn}>
+                  <tr key={turn}>
                     <SideCells
                       side="a"
-                      turn={row.turn}
+                      turn={turn}
                       span={cellA}
-                      fastCount={cellA && row.turn === cellA.startTurn ? view.a.fastCounts[cellA.stepIndex] : null}
-                      short={Boolean(cellA && row.turn === cellA.startTurn && view.a.marks[cellA.stepIndex] === "short")}
-                      voided={Boolean(cellA && row.turn === cellA.startTurn && view.a.marks[cellA.stepIndex] === "void")}
                       fast={sideA.fast}
                       charged={sideA.charged}
                       moveWash={moveWash}
-                      breaks={chargedStarts(sideB.plan, fastTurnsB)}
-                      shieldIndex={shieldIndex(sideB.plan, cellB, row.turn)}
-                      shieldOn={shieldsA.includes(shieldIndex(sideB.plan, cellB, row.turn) ?? -1)}
-                      onToggleShield={() => {
-                        const index = shieldIndex(sideB.plan, cellB, row.turn);
-                        if (index != null) onToggleShield("a", index);
-                      }}
-                      onDelete={(index) => {
-                        const held = holdAsBlank(sideA.plan, index, fastTurnsA);
-                        change("a", held.steps, held.chargedMap);
-                      }}
+                      onDelete={(index) => change("a", deleteStep(sideA.plan, index))}
                       onGripDown={onGripDown}
                     />
-                    {row.label != null ? (
-                      <td className="turn" rowSpan={row.span}>
-                        <button
-                          type="button"
-                          className="timeline-turn-btn"
-                          aria-label={`${row.label}ターンに追加`}
-                          onPointerDown={(event) => {
-                            if (event.button !== 0) return;
-                            watchTap(event, () => setInsertAt({ turn: row.turn, span: row.span }));
-                          }}
-                          onClick={(event) => event.preventDefault()}
-                        >
-                          {row.label}
-                        </button>
-                      </td>
-                    ) : null}
+                    <td className="turn">
+                      <button
+                        type="button"
+                        className="timeline-turn-btn"
+                        aria-label={`${turn}ターンに追加`}
+                        onPointerDown={(event) => {
+                          if (event.button !== 0) return;
+                          watchTap(event, () => setInsertTurn(turn));
+                        }}
+                        onClick={(event) => event.preventDefault()}
+                      >
+                        {turn}
+                      </button>
+                    </td>
                     <SideCells
                       side="b"
-                      turn={row.turn}
+                      turn={turn}
                       span={cellB}
-                      fastCount={cellB && row.turn === cellB.startTurn ? view.b.fastCounts[cellB.stepIndex] : null}
-                      short={Boolean(cellB && row.turn === cellB.startTurn && view.b.marks[cellB.stepIndex] === "short")}
-                      voided={Boolean(cellB && row.turn === cellB.startTurn && view.b.marks[cellB.stepIndex] === "void")}
                       fast={sideB.fast}
                       charged={sideB.charged}
                       moveWash={moveWash}
-                      breaks={chargedStarts(sideA.plan, fastTurnsA)}
-                      shieldIndex={shieldIndex(sideA.plan, cellA, row.turn)}
-                      shieldOn={shieldsB.includes(shieldIndex(sideA.plan, cellA, row.turn) ?? -1)}
-                      onToggleShield={() => {
-                        const index = shieldIndex(sideA.plan, cellA, row.turn);
-                        if (index != null) onToggleShield("b", index);
-                      }}
-                      onDelete={(index) => {
-                        const held = holdAsBlank(sideB.plan, index, fastTurnsB);
-                        change("b", held.steps, held.chargedMap);
-                      }}
+                      onDelete={(index) => change("b", deleteStep(sideB.plan, index))}
                       onGripDown={onGripDown}
                     />
                   </tr>
@@ -432,27 +357,25 @@ export function TimelineCustom({
             </tbody>
           </table>
         </div>
-        <div className="sim-iv-actions timeline-custom-actions">
-          {closeWarned && hasShort ? <p className="timeline-close-warn">ゲージの足りないスペシャルアタックがあります</p> : null}
-          <button type="button" className="btn btn-primary" onClick={tryClose}>
+        <div className="sim-iv-actions">
+          <button type="button" className="btn btn-primary" onClick={onClose}>
             閉じる
           </button>
         </div>
       </div>
-      {insertAt != null ? (
+      {insertTurn != null ? (
         <InsertPopup
-          turn={shown.find((row) => row.turn === insertAt.turn)?.label ?? insertAt.turn}
+          turn={insertTurn}
           sideA={sideA}
           sideB={sideB}
           chargeFill={chargeFill}
           onPick={(side, step) => {
             const edit = side === "a" ? sideA : sideB;
             const turns = Math.max(1, edit.fast.turns);
-            const placed = placeStep(edit.plan, turns, insertAt.turn, insertAt.span, step);
-            change(side, placed.steps, placed.chargedMap);
-            setInsertAt(null);
+            change(side, insertStep(edit.plan, turns, insertTurn, step));
+            setInsertTurn(null);
           }}
-          onClose={() => setInsertAt(null)}
+          onClose={() => setInsertTurn(null)}
         />
       ) : null}
     </div>,
@@ -460,239 +383,91 @@ export function TimelineCustom({
   );
 }
 
-const SHIELD_SRC = "/Image/sozai/shield-ui.png";
-
-function chargedStarts(steps: TimelineStep[], fastTurns: number) {
-  const turns: number[] = [];
-  let cursor = 1;
-  for (const step of steps) {
-    const length = step.kind === "fast" ? Math.max(1, step.turns ?? fastTurns) : 1;
-    if (step.kind === "charged") turns.push(cursor);
-    cursor += length;
-  }
-  return turns;
-}
-
-type Paint =
-  | { kind: "skip" }
-  | { kind: "shield" }
-  | { kind: "move"; rows: number; primary: boolean; blank: boolean };
-
-/** 2ターン以上の技は一つの色マスにまとめる。途中の盾だけ、その1行を白いマスとして切り離す。 */
-function paintSlice(span: TimelineSpan | null, turn: number, breaks: number[]): Paint {
-  if (!span || turn < span.startTurn || turn >= span.startTurn + span.turns) return { kind: "skip" };
-  if (span.step.kind === "blank") {
-    if (turn !== span.startTurn) return { kind: "skip" };
-    if (breaks.includes(turn)) return { kind: "shield" };
-    return { kind: "move", rows: 1, primary: true, blank: true };
-  }
-  const end = span.startTurn + span.turns;
-  const cuts = breaks.filter((item) => item > span.startTurn && item < end).sort((left, right) => left - right);
-  let cursor = span.startTurn;
-  for (const cut of [...cuts, end]) {
-    if (turn < cut) {
-      if (turn !== cursor) return { kind: "skip" };
-      return { kind: "move", rows: cut - cursor, primary: cursor === span.startTurn, blank: false };
-    }
-    if (turn === cut && cut !== end) return { kind: "shield" };
-    cursor = cut + 1;
-  }
-  return { kind: "skip" };
-}
-
-function shieldIndex(steps: TimelineStep[], span: TimelineSpan | null, turn: number) {
-  if (!span || span.startTurn !== turn || span.step.kind !== "charged") return null;
-  let count = 0;
-  for (let index = 0; index < span.stepIndex; index += 1) {
-    if (steps[index]?.kind === "charged") count += 1;
-  }
-  return count;
-}
-
-function ShieldToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      className={`timeline-shield${on ? " is-on" : ""}`}
-      aria-pressed={on}
-      aria-label={on ? "この技のシールドを外す" : "この技にシールドを使う"}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        event.stopPropagation();
-        watchTap(event, onToggle);
-      }}
-      onClick={(event) => event.preventDefault()}
-    >
-      <img src={SHIELD_SRC} alt="" />
-    </button>
-  );
-}
-
 function SideCells({
   side,
   turn,
   span,
-  fastCount,
-  short,
-  voided,
   fast,
   charged,
   moveWash,
-  breaks,
-  shieldIndex: incomingShield,
-  shieldOn,
-  onToggleShield,
   onDelete,
   onGripDown,
 }: {
   side: "a" | "b";
   turn: number;
   span: TimelineSpan | null;
-  fastCount: number | null;
-  short: boolean;
-  voided: boolean;
   fast: PvpMove;
   charged: PvpMove[];
   moveWash: (type: string) => string;
-  breaks: number[];
-  shieldIndex: number | null;
-  shieldOn: boolean;
-  onToggleShield: () => void;
   onDelete: (index: number) => void;
   onGripDown: (side: "a" | "b", index: number, event: ReactPointerEvent<HTMLButtonElement>) => void;
 }) {
-  const slice = span ? paintSlice(span, turn, breaks) : null;
-  const shield = incomingShield != null ? <ShieldToggle on={shieldOn} onToggle={onToggleShield} /> : null;
-  if (!span || !slice || slice.kind === "skip") return null;
-  if (slice.kind === "shield" || (slice.kind === "move" && slice.blank)) {
-    const tagged = span.step.kind === "blank" && turn === span.startTurn;
-    const shieldCell = slice.kind === "shield";
-    const grip = (
-      <td
-        className="tl-grip"
-        {...(tagged ? { "data-tl-side": side, "data-tl-step": span.stepIndex, "data-tl-part": "grip", "data-tl-start": span.startTurn, "data-tl-rows": 1 } : {})}
-      >
-        {tagged ? (
-          <button
-            type="button"
-            className="timeline-grip"
-            aria-label="空白を並べ替え"
-            onPointerDown={(event) => onGripDown(side, span.stepIndex, event)}
-            onClick={(event) => event.preventDefault()}
-            onContextMenu={(event) => event.preventDefault()}
-          >
-            <GripIcon />
-          </button>
-        ) : null}
-      </td>
-    );
-    const moveCell = (
-      <td
-        className={`move${shieldCell ? " is-shield" : " is-blank"}`}
-        {...(tagged
-          ? { "data-tl-side": side, "data-tl-step": span.stepIndex, "data-tl-part": "move", "data-tl-start": span.startTurn, "data-tl-rows": 1 }
-          : {})}
-      >
-        {shield}
-      </td>
-    );
+  if (span && turn !== span.startTurn) return null;
+  if (!span) {
     return side === "a" ? (
       <>
-        {grip}
-        {moveCell}
+        <td className="tl-x" />
+        <td className="tl-grip" />
+        <td className="move is-empty" />
       </>
     ) : (
       <>
-        {moveCell}
-        {grip}
+        <td className="move is-empty" />
+        <td className="tl-grip" />
+        <td className="tl-x" />
       </>
     );
   }
   const step = span.step;
   const move = step.kind === "charged" ? charged.find((item) => item.id === step.moveId) : step.kind === "fast" ? fast : null;
   const name = step.kind === "wait" ? "待機" : (move?.name ?? "技");
-  const wash = step.kind === "wait" || short || voided || !move ? undefined : moveWash(move.type);
-  const roomy = slice.rows >= 2;
-  const dragAttrs = slice.primary
-    ? {
-        "data-tl-side": side,
-        "data-tl-step": span.stepIndex,
-        "data-tl-start": span.startTurn,
-        "data-tl-rows": span.turns,
-      }
-    : { "data-tl-side": side, "data-tl-step": span.stepIndex, "data-tl-part": "tail" };
+  const wash = move ? moveWash(move.type) : undefined;
   const grip = (
-    <td className="tl-grip" rowSpan={slice.rows} {...(slice.primary ? { ...dragAttrs, "data-tl-part": "grip" } : {})}>
-      {slice.primary ? (
-        <button
-          type="button"
-          className="timeline-grip"
-          aria-label={`${name}を並べ替え`}
-          onPointerDown={(event) => onGripDown(side, span.stepIndex, event)}
-          onClick={(event) => event.preventDefault()}
-          onContextMenu={(event) => event.preventDefault()}
-        >
-          <GripIcon />
-        </button>
-      ) : null}
+    <td className="tl-grip" rowSpan={span.turns} data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="grip">
+      <button
+        type="button"
+        className="timeline-grip"
+        aria-label={`${name}を並べ替え`}
+        onPointerDown={(event) => onGripDown(side, span.stepIndex, event)}
+        onClick={(event) => event.preventDefault()}
+        onContextMenu={(event) => event.preventDefault()}
+      >
+        <GripIcon />
+      </button>
     </td>
   );
-  const remove = slice.primary ? (
-    <button
-      type="button"
-      className="timeline-x"
-      aria-label={`${name}を消す`}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        event.stopPropagation();
-        watchTap(event, () => onDelete(span.stepIndex));
-      }}
-      onClick={(event) => event.preventDefault()}
-    >
-      ×
-    </button>
-  ) : null;
-  const count = fastCount != null ? <span className="num move-dmg">{fastCount}</span> : null;
+  const remove = (
+    <td className="tl-x" rowSpan={span.turns} data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="x">
+      <button
+        type="button"
+        className="timeline-x"
+        aria-label={`${name}を消す`}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.stopPropagation();
+          watchTap(event, () => onDelete(span.stepIndex));
+        }}
+        onClick={(event) => event.preventDefault()}
+      >
+        ×
+      </button>
+    </td>
+  );
   const moveCell = (
     <td
-      className={`move${step.kind === "wait" ? " is-wait" : ""}${short ? " is-short" : ""}${voided ? " is-void" : ""}${shield && slice.primary ? " has-shield" : ""}`}
-      rowSpan={slice.rows}
-      {...dragAttrs}
-      {...(slice.primary ? { "data-tl-part": "move" } : {})}
+      className={`move${span.step.kind === "wait" ? " is-wait" : ""}`}
+      rowSpan={span.turns}
+      data-tl-side={side}
+      data-tl-step={span.stepIndex}
+      data-tl-part="move"
       style={wash ? { background: wash } : undefined}
     >
-      {roomy ? (
-        <span className="move-label is-roomy">
-          <span className="move-name">{name}</span>
-          <span className="move-line-sub">
-            {side === "a" ? remove : null}
-            {side === "b" && slice.primary ? shield : null}
-            {count}
-            {side === "a" && slice.primary ? shield : null}
-            {side === "b" ? remove : null}
-          </span>
-        </span>
-      ) : (
-        <span className={`move-label${side === "b" ? " is-foe" : ""}`}>
-          {side === "a" ? remove : null}
-          {side === "b" && slice.primary ? shield : null}
-          <span className="move-line-main">
-            <span className="move-name">{name}</span>
-            {count}
-          </span>
-          {side === "a" && slice.primary ? shield : null}
-          {side === "b" ? remove : null}
-        </span>
-      )}
-      {short && slice.primary ? (
-        <span className="timeline-energy-mark" aria-label="ゲージが足りません">
-          !
-        </span>
-      ) : null}
+      <span className="move-name">{name}</span>
     </td>
   );
   return side === "a" ? (
     <>
+      {remove}
       {grip}
       {moveCell}
     </>
@@ -700,6 +475,7 @@ function SideCells({
     <>
       {moveCell}
       {grip}
+      {remove}
     </>
   );
 }
