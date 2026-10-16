@@ -11,7 +11,7 @@ import {
   type TimelineStep,
 } from "../../lib/pogo/timelinePlan";
 
-const HOLD_MS = 300;
+const HOLD_MS = 100;
 const TAP_MS = 450;
 const SLOP_PX = 8;
 const SCROLL_ZONE = 76;
@@ -321,6 +321,7 @@ export function TimelineCustom({
                       side="a"
                       turn={turn}
                       span={cellA}
+                      fastCount={cellA ? fastCountAt(sideA.plan, cellA.stepIndex) : null}
                       fast={sideA.fast}
                       charged={sideA.charged}
                       moveWash={moveWash}
@@ -345,6 +346,7 @@ export function TimelineCustom({
                       side="b"
                       turn={turn}
                       span={cellB}
+                      fastCount={cellB ? fastCountAt(sideB.plan, cellB.stepIndex) : null}
                       fast={sideB.fast}
                       charged={sideB.charged}
                       moveWash={moveWash}
@@ -383,10 +385,21 @@ export function TimelineCustom({
   );
 }
 
+function fastCountAt(steps: TimelineStep[], index: number) {
+  let count = 0;
+  for (let cursor = 0; cursor <= index && cursor < steps.length; cursor += 1) {
+    const step = steps[cursor];
+    if (step.kind === "charged") count = 0;
+    else if (step.kind === "fast") count += 1;
+  }
+  return steps[index]?.kind === "fast" ? count : null;
+}
+
 function SideCells({
   side,
   turn,
   span,
+  fastCount,
   fast,
   charged,
   moveWash,
@@ -396,6 +409,7 @@ function SideCells({
   side: "a" | "b";
   turn: number;
   span: TimelineSpan | null;
+  fastCount: number | null;
   fast: PvpMove;
   charged: PvpMove[];
   moveWash: (type: string) => string;
@@ -406,7 +420,6 @@ function SideCells({
   if (!span) {
     return side === "a" ? (
       <>
-        <td className="tl-x" />
         <td className="tl-grip" />
         <td className="move is-empty" />
       </>
@@ -414,7 +427,6 @@ function SideCells({
       <>
         <td className="move is-empty" />
         <td className="tl-grip" />
-        <td className="tl-x" />
       </>
     );
   }
@@ -437,37 +449,41 @@ function SideCells({
     </td>
   );
   const remove = (
-    <td className="tl-x" rowSpan={span.turns} data-tl-side={side} data-tl-step={span.stepIndex} data-tl-part="x">
-      <button
-        type="button"
-        className="timeline-x"
-        aria-label={`${name}を消す`}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          event.stopPropagation();
-          watchTap(event, () => onDelete(span.stepIndex));
-        }}
-        onClick={(event) => event.preventDefault()}
-      >
-        ×
-      </button>
-    </td>
+    <button
+      type="button"
+      className="timeline-x"
+      aria-label={`${name}を消す`}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+        watchTap(event, () => onDelete(span.stepIndex));
+      }}
+      onClick={(event) => event.preventDefault()}
+    >
+      ×
+    </button>
   );
   const moveCell = (
     <td
-      className={`move${span.step.kind === "wait" ? " is-wait" : ""}`}
+      className={`move${step.kind === "wait" ? " is-wait" : ""}`}
       rowSpan={span.turns}
       data-tl-side={side}
       data-tl-step={span.stepIndex}
       data-tl-part="move"
       style={wash ? { background: wash } : undefined}
     >
-      <span className="move-name">{name}</span>
+      <span className={`move-label${side === "b" ? " is-foe" : ""}`}>
+        {side === "a" ? remove : null}
+        <span className="move-line-main">
+          <span className="move-name">{name}</span>
+          {fastCount != null ? <span className="num move-dmg">{fastCount}</span> : null}
+        </span>
+        {side === "b" ? remove : null}
+      </span>
     </td>
   );
   return side === "a" ? (
     <>
-      {remove}
       {grip}
       {moveCell}
     </>
@@ -475,7 +491,6 @@ function SideCells({
     <>
       {moveCell}
       {grip}
-      {remove}
     </>
   );
 }
