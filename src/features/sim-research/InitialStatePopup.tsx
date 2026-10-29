@@ -111,10 +111,10 @@ export function InitialStatePopup({
               />
               <div className="initial-gauge-actions">
                 <GainButton disabled={gain <= 0} onClick={() => patch({ initialEnergy: clampInt(energy + gain, 0, 100) })}>
-                  {fastName}＋１
+                  {fastName}＋{gain}
                 </GainButton>
                 <GainButton disabled={gain <= 0} onClick={() => patch({ initialEnergy: clampInt(energy - gain, 0, 100) })}>
-                  {fastName}ー１
+                  {fastName}ー{gain}
                 </GainButton>
               </div>
             </div>
