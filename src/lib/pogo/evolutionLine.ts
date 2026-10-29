@@ -268,7 +268,7 @@ function findMegaSelection(selected: PogoStatRecord, data: EvolutionData) {
 
 function memberLabel(record: PogoStatRecord, mega: string | null) {
   const name = getPokemonDisplayName(record.pokemon_id, record.pokemon_name);
-  if (mega) return `${name} ${megaLabel(mega)}`;
+  if (mega) return `${name}(${megaLabel(mega)})`;
   if (record.pokemon_id === 382 && record.form === "Primal") return "ゲンシカイオーガ";
   if (record.pokemon_id === 383 && record.form === "Primal") return "ゲンシグラードン";
   if (record.pokemon_id === 681 && record.form === "Shield") return "ギルガルド(シールド)";
