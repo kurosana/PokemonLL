@@ -409,6 +409,7 @@ export function SimResearchPage() {
                     defense={fighterA.build.defense}
                     stamina={fighterA.build.stamina}
                     energy={result.energyA}
+                    shieldsUsed={shieldsUsedBy(result.timeline, "a")}
                     hits={matchupMoveHits(fighterA.input, fighterB.input, fighterA.thirdMove?.id ?? null)}
                   />
                   <MatchupSide
@@ -422,6 +423,7 @@ export function SimResearchPage() {
                     defense={fighterB.build.defense}
                     stamina={fighterB.build.stamina}
                     energy={result.energyB}
+                    shieldsUsed={shieldsUsedBy(result.timeline, "b")}
                     hits={matchupMoveHits(fighterB.input, fighterA.input, fighterB.thirdMove?.id ?? null)}
                   />
                 </div>
@@ -1465,6 +1467,11 @@ function matchupMoveHits(attacker: FighterInput, defender: FighterInput, thirdId
   return rows;
 }
 
+function shieldsUsedBy(timeline: TimelineEvent[], defender: "a" | "b") {
+  const attacker = defender === "a" ? "b" : "a";
+  return timeline.filter((event) => event.actor === attacker && event.shielded).length;
+}
+
 function MatchupSide({
   word,
   side,
@@ -1476,6 +1483,7 @@ function MatchupSide({
   defense,
   stamina,
   energy,
+  shieldsUsed,
   hits,
 }: {
   word: "WIN" | "LOSE" | null;
@@ -1488,6 +1496,7 @@ function MatchupSide({
   defense: number;
   stamina: number;
   energy: number;
+  shieldsUsed: number;
   hits: MatchupHitRow[];
 }) {
   const ratio = max > 0 ? hp / max : 0;
@@ -1532,7 +1541,13 @@ function MatchupSide({
           {hp} / {max}
         </span>
       </div>
-      <p className="sim-gauge">ゲージ：{energy}</p>
+      <div className="sim-gauge-row">
+        <p className="sim-gauge">ゲージ：{energy}</p>
+        <p className="sim-shields-used" aria-label={`使ったシールド${shieldsUsed}枚`}>
+          <ShieldMark size={14} />
+          <span className="num">×{shieldsUsed}</span>
+        </p>
+      </div>
       <ul className={`sim-hit-list${regular.length ? "" : " is-empty"}`} aria-label={regular.length ? "技ダメージ" : undefined}>
         {regular.map((row) => (
           <li key={row.id}>

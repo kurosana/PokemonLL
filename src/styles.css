@@ -3395,12 +3395,33 @@ select.input {
   width: 100%;
 }
 
-.sim-gauge {
+.sim-gauge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
   margin: 0.28rem 0 0;
   color: #1a2733;
   font-size: 0.72rem;
   font-weight: 800;
   line-height: 1.25;
+}
+
+.sim-gauge,
+.sim-shields-used {
+  margin: 0;
+}
+
+.sim-shields-used {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.08rem;
+  flex: 0 0 auto;
+}
+
+.sim-shields-used .sozai-shield {
+  width: 0.85rem;
+  height: auto;
 }
 
 .timeline-ops {
@@ -3814,7 +3835,7 @@ button.shield-corner.is-selected {
     font-size: 0.82rem;
   }
 
-  .sim-gauge {
+  .sim-gauge-row {
     font-size: 0.64rem;
   }
 
@@ -3889,7 +3910,7 @@ button.shield-corner.is-selected {
     font-size: 0.7rem;
   }
 
-  .sim-gauge {
+  .sim-gauge-row {
     font-size: 0.56rem;
   }
 
