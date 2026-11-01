@@ -210,20 +210,19 @@ export function FrequentPokemon({
   const [layout, setLayout] = useState({ size: 40, columns: 9 });
   const [pending, setPending] = useState<Mon | null>(null);
   const favorites = favoritesFor(league);
-  const favoriteKeys = new Set(favorites.map((item) => `${item.id}:${item.form}`));
-
-  const recentMons = recent
-    .map((key) => recentMon(stats, key))
-    .filter((mon): mon is Mon => Boolean(mon))
-    .filter((mon) => !favoriteKeys.has(`${mon.record.pokemon_id}:${mon.record.form}`))
-    .slice(0, layout.columns);
   const catalog = favorites.flatMap((item) => {
     const mon = favoriteMon(stats, item);
     return mon ? [mon] : [];
   });
-  const favoriteLimit = layout.columns * Math.min(FAVORITE_ROWS, MAX_ROWS - (recentMons.length ? 1 : 0));
-  const favoriteRows: Mon[][] = [];
+  const favoriteLimit = layout.columns * Math.min(FAVORITE_ROWS, MAX_ROWS - 1);
   const shownFavorites = catalog.slice(0, favoriteLimit);
+  const shownFavoriteKeys = new Set(shownFavorites.map((mon) => mon.key));
+  const recentMons = recent
+    .map((key) => recentMon(stats, key))
+    .filter((mon): mon is Mon => Boolean(mon))
+    .filter((mon) => !shownFavoriteKeys.has(mon.key))
+    .slice(0, layout.columns);
+  const favoriteRows: Mon[][] = [];
   for (let index = 0; index < shownFavorites.length; index += layout.columns) {
     favoriteRows.push(shownFavorites.slice(index, index + layout.columns));
   }
