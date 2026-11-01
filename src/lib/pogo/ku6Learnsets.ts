@@ -88,6 +88,51 @@ export function applyKu6Learnsets(bundle: PvpBundle, catalog: SheetCatalog, stat
   return { ...bundle, pokemon };
 }
 
+const SMEARGLE_ID = 235;
+
+/** ノーマルアタックはロックオンだけ。スペシャルはほうこうレポートの当たり技リスト順。 */
+const SMEARGLE_FAST = ["LOCK_ON"];
+const SMEARGLE_CHARGED = [
+  "FLYING_PRESS",
+  "ROCK_WRECKER",
+  "BLAST_BURN",
+  "FRENZY_PLANT",
+  "TECHNO_BLAST_SHOCK",
+  "PSYSTRIKE",
+  "AVALANCHE",
+  "V_CREATE",
+  "BRAVE_BIRD",
+  "AEROBLAST",
+  "TECHNO_BLAST_NORMAL",
+  "TECHNO_BLAST_DOUSE",
+  "TECHNO_BLAST_BURN",
+  "TECHNO_BLAST_CHILL",
+  "ORIGIN_PULSE",
+  "PRECIPICE_BLADES",
+  "LEAF_BLADE",
+  "BOOMBURST",
+  "WILD_CHARGE",
+  "ROCK_TOMB",
+  "GLACIATE",
+  "LUNGE",
+  "SANDSEAR_STORM",
+  "WILDBOLT_STORM",
+  "BLEAKWIND_STORM",
+];
+
+/** ドーブルはロックオンと、当たり技リストのスペシャルアタックだけを覚える。 */
+export function applySmeargleLearnset(bundle: PvpBundle): PvpBundle {
+  const fast = SMEARGLE_FAST.filter((id) => bundle.moves[id]?.kind === "fast");
+  const charged = SMEARGLE_CHARGED.filter((id) => bundle.moves[id]?.kind === "charged");
+  let changed = false;
+  const pokemon = bundle.pokemon.map((entry) => {
+    if (entry.pokemonId !== SMEARGLE_ID) return entry;
+    changed = true;
+    return { ...entry, fast, charged, third: null };
+  });
+  return changed ? { ...bundle, pokemon } : bundle;
+}
+
 function megaKindFromName(name: string) {
   if (name.endsWith("X")) return "MEGA_X";
   if (name.endsWith("Y")) return "MEGA_Y";
