@@ -181,6 +181,8 @@ function pickRepresentative(list: PogoStatRecord[], preferred: PogoStatRecord | 
     const match = list.find((item) => item.pokemon_id === preferred.pokemon_id && item.form === preferred.form);
     if (match) return match;
   }
+  const disguised = list.find((item) => item.pokemon_id === 778 && item.form === "Disguised");
+  if (disguised) return disguised;
   return list.find((item) => item.form === "Normal") ?? list.find((item) => !COSTUME.test(item.form)) ?? list[0];
 }
 
@@ -191,6 +193,17 @@ function megaLabel(mega: string) {
   return mega;
 }
 
+/** 「メガカラマネロ」でも「カラマネロ(メガ)」に届くようにする。種族名そのもの（メガニウム等）には付けない。 */
+function megaSearchAliases(name: string, mega: string) {
+  const mark = megaLabel(mega);
+  const aliases = [`メガ${name}`, `${name}${mark}`, `${name}(${mark})`];
+  if (mega === "MEGA_X" || mega === "MEGA_Y") {
+    const letter = mega === "MEGA_X" ? "X" : "Y";
+    aliases.push(`メガ${letter}${name}`, `メガ${name}${letter}`, `${name}メガ${letter}`);
+  }
+  return [...new Set(aliases)];
+}
+
 /**
  * 検索用。タイプ・わざ・攻撃・防御・HPが全部同じフォルムは代表1体。
  * どれか一つでも違うフォルムと、中身の違うメガシンカは別の結果にする。
@@ -198,6 +211,7 @@ function megaLabel(mega: string) {
 export function buildSearchGroups(stats: PogoStatRecord[], data: EvolutionData): SpeciesGroup[] {
   const buckets = new Map<string, PogoStatRecord[]>();
   for (const record of stats) {
+    if (record.pokemon_id === 778 && record.form === "Busted") continue;
     const signature = data.signature[`${record.pokemon_id}:${record.form}`] ?? statSignature(record);
     const key = `${record.pokemon_id}:${signature}`;
     const list = buckets.get(key) ?? [];
@@ -215,6 +229,7 @@ export function buildSearchGroups(stats: PogoStatRecord[], data: EvolutionData):
       pokemonId: representative.pokemon_id,
       entries: [representative],
       label: memberLabel(representative, null),
+      aliases: representative.pokemon_id === 778 && representative.form === "Disguised" ? ["ミミッキュ"] : undefined,
     });
   }
 
@@ -239,6 +254,7 @@ export function buildSearchGroups(stats: PogoStatRecord[], data: EvolutionData):
       pokemonId: mega.pokemonId,
       entries: [record],
       label: memberLabel(base, mega.mega),
+      aliases: megaSearchAliases(getPokemonDisplayName(base.pokemon_id, base.pokemon_name), mega.mega),
       exactSprite: true,
       spriteSuffix: mega.spriteSuffix,
     });
@@ -269,12 +285,15 @@ function findMegaSelection(selected: PogoStatRecord, data: EvolutionData) {
 function memberLabel(record: PogoStatRecord, mega: string | null) {
   const name = getPokemonDisplayName(record.pokemon_id, record.pokemon_name);
   if (mega) return `${name}(${megaLabel(mega)})`;
+  if (record.pokemon_id === 705 && record.form === "Hisuian") return "ヒスイヌメイル";
+  if (record.pokemon_id === 706 && record.form === "Hisuian") return "ヒスイヌメルゴン";
   if (record.pokemon_id === 382 && record.form === "Primal") return "ゲンシカイオーガ";
   if (record.pokemon_id === 383 && record.form === "Primal") return "ゲンシグラードン";
   if (record.pokemon_id === 681 && record.form === "Shield") return "ギルガルド(シールド)";
   if (record.pokemon_id === 681 && record.form === "Blade") return "ギルガルド(ブレード)";
   if (record.pokemon_id === 774 && record.form === "Meteor") return "メテノ(りゅうせい)";
   if (record.pokemon_id === 774) return "メテノ(コア)";
+  if (record.pokemon_id === 778 && record.form === "Disguised") return "ミミッキュ(ばけたすがた)";
   if (record.form !== "Normal") return `${name} ${formatFormLabel(record.form)}`;
   return name;
 }

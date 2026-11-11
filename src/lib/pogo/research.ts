@@ -28,6 +28,8 @@ export type SpeciesGroup = {
   entries: PogoStatRecord[];
   /** 検索でフォルムやメガを分けて出すときの表示名。 */
   label?: string;
+  /** 表示名とは別の呼び方。メガ○○ で ○○(メガ) を出すために使う。 */
+  aliases?: string[];
   exactSprite?: boolean;
   spriteSuffix?: number | null;
 };
@@ -69,11 +71,32 @@ export function leagueCap(leagueId: LeagueId, customCap = 1500) {
 }
 
 export function pickPreferredEntry(group: SpeciesGroup) {
-  return group.entries.find((entry) => entry.form === "Normal") ?? group.entries[0];
+  return (
+    group.entries.find((entry) => entry.pokemon_id === 778 && entry.form === "Disguised") ??
+    group.entries.find((entry) => entry.form === "Normal") ??
+    group.entries[0]
+  );
 }
 
 export function speciesDisplayName(group: SpeciesGroup) {
   return group.label ?? getPokemonDisplayName(group.pokemonId, group.name);
+}
+
+/** 表示ラベルを「ポケモン名」と「フォルム等の追記」に分ける（1行目は名前を収めるため）。 */
+export function displayNameParts(pokemonId: number, pokemonName: string, displayLabel: string) {
+  const name = getPokemonDisplayName(pokemonId, pokemonName);
+  if (displayLabel === name) return { name, suffix: null as string | null };
+  if (displayLabel.startsWith(name)) {
+    const suffix = displayLabel.slice(name.length).trim();
+    return { name, suffix: suffix || null };
+  }
+  return { name: displayLabel, suffix: null };
+}
+
+export function speciesLabelParts(group: SpeciesGroup) {
+  const entry = group.entries[0];
+  const pokemonName = entry?.pokemon_name ?? group.name;
+  return displayNameParts(group.pokemonId, pokemonName, speciesDisplayName(group));
 }
 
 const levelOrder = (a: number, b: number) => a - b;
@@ -126,8 +149,13 @@ export function groupSpecies(records: PogoStatRecord[]): SpeciesGroup[] {
     });
 }
 
+const FORM_JA: Record<string, string> = {
+  Hisuian: "ヒスイ",
+};
+
 export function formatFormLabel(form: string) {
-  return form === "Normal" ? "通常" : form.replace(/_/g, " ");
+  if (form === "Normal") return "通常";
+  return FORM_JA[form] ?? form.replace(/_/g, " ");
 }
 
 export function getPokemonDisplayName(pokemonId: number, fallback: string) {

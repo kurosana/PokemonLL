@@ -11,14 +11,19 @@ export function MoveSearchDialog({
 }: {
   open: boolean;
   moves: PvpMove[];
-  kind: "fast" | "charged" | null;
+  kind: "fast" | "charged" | "third" | null;
   onClose: () => void;
   onSelect: (move: PvpMove) => void;
 }) {
   const [query, setQuery] = useState("");
 
   const pool = useMemo(() => {
-    const list = kind ? moves.filter((move) => move.kind === kind) : moves;
+    const list =
+      kind === "third" || kind === "charged"
+        ? moves.filter((move) => move.kind === "charged")
+        : kind
+          ? moves.filter((move) => move.kind === kind)
+          : moves;
     return [...list].sort((a, b) => a.name.localeCompare(b.name, "ja"));
   }, [kind, moves]);
 
@@ -43,7 +48,14 @@ export function MoveSearchDialog({
 
   if (!open) return null;
 
-  const title = kind === "fast" ? "ノーマルアタックを追加" : kind === "charged" ? "スペシャルアタックを追加" : "技を検索";
+  const title =
+    kind === "fast"
+      ? "ノーマルアタックを追加"
+      : kind === "third"
+        ? "サードアタックを追加"
+        : kind === "charged"
+          ? "スペシャルアタックを追加"
+          : "技を検索";
 
   return (
     <div className="search-overlay" role="dialog" aria-modal="true" aria-label={title}>

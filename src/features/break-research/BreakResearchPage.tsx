@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { PokemonLabelFit } from "../../components/PokemonLabelFit";
 import { LeagueIconButton } from "../../components/LeagueIconButton";
 import { SpeciesPicker } from "../shared/SpeciesPicker";
 import { useResearchData } from "../shared/useResearchData";
@@ -13,6 +14,7 @@ import {
   leagueConfigs,
   pickPreferredEntry,
   speciesDisplayName,
+  speciesLabelParts,
   type LeagueId,
   type PogoStatRecord,
   type SpeciesGroup,
@@ -389,7 +391,13 @@ function SideEditor({
   return (
     <section className="panel">
       <h2 className="panel-title">{title}</h2>
-      <p className="selected-name">{group ? speciesDisplayName(group) : "未選択"}</p>
+      <p className="selected-name">
+        {group ? (
+          <PokemonLabelFit {...speciesLabelParts(group)} />
+        ) : (
+          "未選択"
+        )}
+      </p>
       <p className="note">{buildLabel}</p>
       <SpeciesPicker groups={groups} selectedName={side.species} onSelect={onSpecies} compact />
       {group && group.entries.length > 1 ? (

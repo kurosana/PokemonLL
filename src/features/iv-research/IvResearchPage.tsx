@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LeagueIconButton, LeagueMark } from "../../components/LeagueIconButton";
 import { PokemonDotSprite } from "../../components/PokemonDotSprite";
+import { PokemonLabelFit } from "../../components/PokemonLabelFit";
 import { buildEvolutionLine, buildSearchGroups, type EvolutionData, type LineMember } from "../../lib/pogo/evolutionLine";
 import { pokemonDexPlaceholderPath } from "../../lib/pogo/pokemonSprite";
 import {
@@ -16,6 +17,7 @@ import {
   pickPreferredEntry,
   placeTone,
   speciesDisplayName,
+  speciesLabelParts,
   withBuddyLevels,
   type CpMultiplierRecord,
   type PogoStatRecord,
@@ -217,7 +219,11 @@ export function IvResearchPage() {
             ) : null}
             <div className="mon-pick-main">
               <button type="button" className="mon-pick-name" onClick={() => openPokemonSearch(chooseGroup)}>
-                {selected ? speciesDisplayName(selected) : "ポケモン選択"}
+                {selected ? (
+                  <PokemonLabelFit {...speciesLabelParts(selected)} />
+                ) : (
+                  <PokemonLabelFit name="ポケモン選択" singleLine />
+                )}
               </button>
               <button type="button" className="mon-pick-sprite" aria-label="ポケモン選択" onClick={() => openPokemonSearch(chooseGroup)}>
                 {selected ? (
