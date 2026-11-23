@@ -9,11 +9,14 @@ import { displayNameParts, speciesDisplayName, type SpeciesGroup } from "../../l
 import { useResearchData } from "../shared/useResearchData";
 import { openPokemonSearch } from "../shared/pokemonSearchApi";
 import { MoveSearchDialog } from "./MoveSearchDialog";
+import { deleteGblPlayer, loadGblMatches } from "../gbl/gblApi";
 
 const ADMIN_SESSION = "pokemonll.admin.v1";
+/** worker/gbl.js の ADMIN_PASSWORD と同じ。 */
+const ADMIN_PASSWORD = "cham2riverE";
 const SAVED_TEXT = "この端末に保存しました。GitHubへの送信はまだ繋がっていません。";
 
-type TabId = "pokemon" | "move";
+type TabId = "pokemon" | "move" | "member";
 type MoveKind = "fast" | "charged" | "third";
 
 type PickedPokemon = {
@@ -54,7 +57,7 @@ function PasswordGate({ onEnter }: { onEnter: () => void }) {
         className="panel admin-login"
         onSubmit={(event) => {
           event.preventDefault();
-          if (password === "") {
+          if (password === ADMIN_PASSWORD) {
             sessionStorage.setItem(ADMIN_SESSION, "1");
             setError("");
             onEnter();
@@ -77,7 +80,7 @@ function PasswordGate({ onEnter }: { onEnter: () => void }) {
             }}
           />
         </label>
-        <p className="note">いまのパスワードは空です。何も入れずに入室できます。</p>
+        <p className="note">わたしマリィさん</p>
         {error ? (
           <p className="form-error" role="alert">
             {error}
@@ -169,6 +172,17 @@ function DataDesk({ onLogout }: { onLogout: () => void }) {
             >
               技
             </button>
+            <button
+              type="button"
+              role="tab"
+              id="tab-member"
+              className={tab === "member" ? "folder-tab is-active" : "folder-tab"}
+              aria-selected={tab === "member"}
+              aria-controls="panel-member"
+              onClick={() => setTab("member")}
+            >
+              メンバー
+            </button>
           </div>
           <div className="folder-body">
             <div role="tabpanel" id="panel-pokemon" aria-labelledby="tab-pokemon" hidden={tab !== "pokemon"}>
@@ -176,6 +190,9 @@ function DataDesk({ onLogout }: { onLogout: () => void }) {
             </div>
             <div role="tabpanel" id="panel-move" aria-labelledby="tab-move" hidden={tab !== "move"}>
               <MoveEditor moves={Object.values(data.bundle.moves)} onSaved={() => setEditTick((value) => value + 1)} />
+            </div>
+            <div role="tabpanel" id="panel-member" aria-labelledby="tab-member" hidden={tab !== "member"}>
+              <MemberEditor />
             </div>
           </div>
         </div>
@@ -511,6 +528,68 @@ function MoveEditor({ moves, onSaved }: { moves: PvpMove[]; onSaved: () => void 
         onSelect={(move) => {
           setPickedId(move.id);
           setOpen(false);
+        }}
+      />
+    </div>
+  );
+}
+
+function MemberEditor() {
+  const [players, setPlayers] = useState<{ name: string; count: number }[]>([]);
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const reload = () => {
+    setError("");
+    loadGblMatches()
+      .then((matches) => {
+        const counts = new Map<string, number>();
+        for (const row of matches) counts.set(row.player, (counts.get(row.player) ?? 0) + 1);
+        setPlayers([...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], "ja")).map(([name, count]) => ({ name, count })));
+      })
+      .catch(() => setError("メンバーを読み込めませんでした。"));
+  };
+
+  useEffect(() => {
+    reload();
+  }, []);
+
+  return (
+    <div className="admin-editor">
+      <p className="page-lead">記録のあるプレイヤーを消すと、その人の対戦記録もまとめて消えます。</p>
+      {error ? <p className="form-error">{error}</p> : null}
+      {players.length === 0 && !error ? <p className="note">記録のあるプレイヤーはいません。</p> : null}
+      <div className="gbl-members" role="list">
+        {players.map((player) => (
+          <div className="gbl-member" role="listitem" key={player.name}>
+            <span>
+              {player.name}
+              <span className="gbl-player-count num">{player.count}</span>
+            </span>
+            <button type="button" className="gbl-member-remove" aria-label={`${player.name}を消す`} onClick={() => setPending(player.name)}>
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <ConfirmDialog
+        open={pending !== null}
+        message={pending ? `「${pending}」の対戦記録を、すべて消します。` : ""}
+        confirmLabel={busy ? "削除中" : "消す"}
+        onCancel={() => {
+          if (!busy) setPending(null);
+        }}
+        onConfirm={() => {
+          if (!pending || busy) return;
+          setBusy(true);
+          deleteGblPlayer(pending, ADMIN_PASSWORD)
+            .then(() => {
+              setPending(null);
+              reload();
+            })
+            .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "消せませんでした。"))
+            .finally(() => setBusy(false));
         }}
       />
     </div>

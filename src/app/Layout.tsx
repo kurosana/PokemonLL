@@ -10,6 +10,7 @@ const navItems = [
   { href: "#/", label: "ホーム", route: "/" },
   { href: "#/research/iv", label: "個体値", route: "/research/iv" },
   { href: "#/research/sim", label: "シミュ", route: "/research/sim" },
+  { href: "#/research/gbl", label: "振り返り", route: "/research/gbl" },
   { href: "#/research/break", label: "ブレイク", route: "/research/break" },
 ] as const;
 
