@@ -3,6 +3,7 @@ dist/
 node_modules/
 work/npm-cache/
 work/pokemon-pick-counts.json
+work/gbl-matches.json
 
 # wrangler files
 .wrangler

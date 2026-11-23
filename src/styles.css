@@ -4975,3 +4975,197 @@ body.is-chase::before {
   width: 100% !important;
   height: 100% !important;
 }
+
+.gbl-page {
+  gap: 0.55rem;
+}
+
+.gbl-players,
+.gbl-log,
+.gbl-members {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.gbl-player,
+.gbl-member,
+.gbl-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface);
+}
+
+.gbl-player {
+  justify-content: space-between;
+  min-height: 2.55rem;
+  padding: 0.2rem 0.7rem;
+  color: inherit;
+  font-weight: 700;
+}
+
+.gbl-player-count {
+  margin-left: 0.45rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.gbl-row {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr) 1.1rem minmax(0, 1fr);
+  grid-template-areas: "result self vs foe";
+  gap: 0.28rem;
+  min-height: 2.15rem;
+  padding: 0.18rem 0.35rem;
+}
+
+.gbl-result {
+  grid-area: result;
+}
+
+.gbl-party.is-self {
+  grid-area: self;
+}
+
+.gbl-party.is-foe {
+  grid-area: foe;
+}
+
+.gbl-vs {
+  grid-area: vs;
+}
+
+.gbl-result {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.gbl-result.is-win {
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 14%, var(--surface));
+}
+
+.gbl-result.is-loss {
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 12%, var(--surface));
+}
+
+.gbl-party {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.gbl-mon {
+  display: flex;
+  align-items: center;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.gbl-mon .pokemon-dot-sprite {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+
+.gbl-mon-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.gbl-vs {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.gbl-member {
+  justify-content: space-between;
+  min-height: 2.4rem;
+  padding: 0.15rem 0.35rem 0.15rem 0.7rem;
+  gap: 0.4rem;
+}
+
+.gbl-member-remove {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--bad);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gbl-member-remove:hover {
+  background: color-mix(in srgb, var(--bad) 12%, var(--surface));
+}
+
+@media (max-width: 719px) {
+  .gbl-row {
+    grid-template-columns: 1.7rem minmax(0, 1fr);
+    grid-template-areas:
+      "result self"
+      "vs foe";
+    min-height: 0;
+    padding: 0.22rem 0.4rem;
+  }
+
+  .gbl-mon-name {
+    font-size: 0.72rem;
+  }
+}
+
+@media (min-width: 840px) {
+  .gbl-page {
+    width: min(920px, 100%);
+    margin-inline: auto;
+  }
+
+  .gbl-row {
+    min-height: 2.55rem;
+    padding: 0.28rem 0.55rem;
+    gap: 0.45rem;
+  }
+
+  .gbl-mon .pokemon-dot-sprite {
+    width: 34px;
+    height: 34px;
+  }
+
+  .gbl-mon-name {
+    font-size: 0.84rem;
+  }
+
+  .gbl-result {
+    width: 1.8rem;
+    height: 1.8rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .site-nav a {
+    padding: 0.42rem 0.48rem;
+    font-size: 0.75rem;
+  }
+}

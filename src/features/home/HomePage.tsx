@@ -1,4 +1,4 @@
-import { ChevronRight, Crosshair, Gauge, Swords, UsersRound, type LucideIcon } from "lucide-react";
+import { ChevronRight, ClipboardList, Crosshair, Gauge, Swords, UsersRound, type LucideIcon } from "lucide-react";
 
 type ResearchCard = {
   title: string;
@@ -24,6 +24,14 @@ const researchCards: ResearchCard[] = [
     icon: Swords,
     metrics: ["対面", "シールド", "シミュレーション"],
     href: "#/research/sim",
+    ready: true,
+  },
+  {
+    title: "GBLパーティ振り返り",
+    description: "実際の対戦で使った自分と相手の3体を、リーグごとに振り返ります。",
+    icon: ClipboardList,
+    metrics: ["プレイヤー", "3対3", "勝敗"],
+    href: "#/research/gbl",
     ready: true,
   },
   {

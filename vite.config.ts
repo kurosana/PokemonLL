@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
+import { ADMIN_PASSWORD, parseMatch, seedMatches, withMatch, withoutPlayer } from "./worker/gbl.js";
 import react from "@vitejs/plugin-react";
 import { cloudflare } from "@cloudflare/vite-plugin";
 
@@ -65,6 +66,89 @@ function pokemonPickCounts(): Plugin {
   };
 }
 
+function gblMatches(): Plugin {
+  const file = path.join(projectRoot, "work/gbl-matches.json");
+  let cache: ReturnType<typeof seedMatches> | null = null;
+  const read = () => {
+    if (cache) return cache;
+    try {
+      const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (Array.isArray(parsed)) {
+        cache = parsed;
+        return cache;
+      }
+    } catch {
+      /* まだファイルが無いときはダミーを見せる */
+    }
+    cache = seedMatches();
+    return cache;
+  };
+  const write = (matches: ReturnType<typeof seedMatches>) => {
+    cache = matches;
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(matches));
+  };
+  const send = (res: import("node:http").ServerResponse, status: number, body: unknown) => {
+    res.statusCode = status;
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.end(JSON.stringify(body));
+  };
+
+  return {
+    name: "gbl-matches",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split("?")[0] ?? "";
+        if (url !== "/api/gbl-matches") return next();
+        if (req.method === "OPTIONS") {
+          res.statusCode = 204;
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+          res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+          res.end();
+          return;
+        }
+        if (req.method === "GET") {
+          send(res, 200, { matches: read() });
+          return;
+        }
+        const chunks: Buffer[] = [];
+        req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        req.on("end", () => {
+          const body = JSON.parse(Buffer.concat(chunks).toString() || "null");
+          if (req.method === "POST") {
+            const parsed = parseMatch(body);
+            if (parsed.error || !parsed.match) {
+              send(res, 400, { error: parsed.error ?? "jsonが必要です" });
+              return;
+            }
+            const saved = withMatch(read(), parsed.match);
+            if (saved.created) write(saved.matches);
+            send(res, saved.created ? 201 : 200, { match: saved.match, created: saved.created });
+            return;
+          }
+          if (req.method === "DELETE") {
+            if (body?.password !== ADMIN_PASSWORD) {
+              send(res, 401, { error: "パスワードが違います" });
+              return;
+            }
+            const removed = withoutPlayer(read(), body?.player);
+            if (removed.error || !removed.matches) {
+              send(res, removed.status ?? 400, { error: removed.error });
+              return;
+            }
+            write(removed.matches);
+            send(res, 200, { player: removed.name, removed: removed.removed });
+            return;
+          }
+          next();
+        });
+      });
+    },
+  };
+}
+
 function rootImageDir(): Plugin {
   let clientOutDir = path.join(projectRoot, "dist", "client");
   return {
@@ -97,7 +181,7 @@ function rootImageDir(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), cloudflare(), rootImageDir(), pokemonPickCounts()],
+  plugins: [react(), cloudflare(), rootImageDir(), pokemonPickCounts(), gblMatches()],
   build: {
     outDir: "dist",
   },
